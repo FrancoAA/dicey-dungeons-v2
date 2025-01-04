@@ -1,4 +1,5 @@
 import { DiceType } from '../types/GameTypes';
+import { Player } from './Player';
 
 export interface DiceResult {
     type: DiceType;
@@ -15,8 +16,10 @@ export interface DiceEffects {
 export class DiceManager {
     private dice: DiceResult[] = [];
     private lockedDice: boolean[] = [];
+    private player: Player;
 
-    constructor() {
+    constructor(player: Player) {
+        this.player = player;
         this.resetLocks();
     }
 
@@ -78,20 +81,28 @@ export class DiceManager {
             counts.set(die.type, (counts.get(die.type) || 0) + 1);
         });
 
-        // Calculate attack damage
+        // Calculate attack damage with weapon bonus
         const attackCount = counts.get(DiceType.ATTACK) || 0;
         if (attackCount >= 3) {
             if (attackCount === 5) effects.damage = 8;
             else if (attackCount === 4) effects.damage = 5;
             else effects.damage = 3;
+
+            // Add weapon damage bonus
+            effects.damage += this.player.getBonusForType('damage');
         }
 
-        // Calculate defense
+        // Calculate defense with shield bonus
         const defenseCount = counts.get(DiceType.DEFENSE) || 0;
         if (defenseCount >= 3) {
             if (defenseCount === 5) effects.defense = 999; // Immune
             else if (defenseCount === 4) effects.defense = 5;
             else effects.defense = 3;
+
+            // Add shield defense bonus if not immune
+            if (effects.defense !== 999) {
+                effects.defense += this.player.getBonusForType('defense');
+            }
         }
 
         // Calculate magic effects
@@ -133,10 +144,12 @@ export class DiceManager {
         const messages: string[] = [];
 
         if (effects.damage > 0) {
-            messages.push(`Attack: ${effects.damage} damage`);
+            const bonus = this.player.getBonusForType('damage');
+            messages.push(`Attack: ${effects.damage} damage${bonus > 0 ? ` (${bonus} from items)` : ''}`);
         }
         if (effects.defense > 0) {
-            messages.push(`Defense: ${effects.defense === 999 ? 'Immune' : effects.defense}`);
+            const bonus = this.player.getBonusForType('defense');
+            messages.push(`Defense: ${effects.defense === 999 ? 'Immune' : effects.defense}${bonus > 0 ? ` (${bonus} from items)` : ''}`);
         }
         if (effects.magicDamage > 0) {
             messages.push(`Magic: ${effects.magicDamage} damage (${effects.magicCost} MP)`);

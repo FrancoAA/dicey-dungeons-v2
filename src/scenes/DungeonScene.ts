@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { RoomType } from '../types/GameTypes';
 import { Player } from '../game/Player';
+import { ITEMS } from '../game/Item';
 
 export default class DungeonScene extends Phaser.Scene {
     private player!: Player;
@@ -58,19 +59,25 @@ export default class DungeonScene extends Phaser.Scene {
     }
 
     private generateDungeon(): RoomType[] {
-        // Simple dungeon generation - can be made more complex later
+        const dungeonLength = 10;  // Total rooms including boss
         const rooms: RoomType[] = [];
-        const totalRooms = 10;
 
-        // Add random rooms
-        for (let i = 0; i < totalRooms - 1; i++) {
-            const roll = Math.random();
-            if (roll < 0.6) rooms.push(RoomType.MONSTER);
-            else if (roll < 0.8) rooms.push(RoomType.CHEST);
-            else rooms.push(RoomType.MERCHANT);
+        // Fill all rooms except last two (merchant and boss)
+        for (let i = 0; i < dungeonLength - 2; i++) {
+            const roll = Math.random() * 100;
+            if (roll < 35) {  // Increased from original chance
+                rooms.push(RoomType.CHEST);
+            } else if (roll < 85) {
+                rooms.push(RoomType.MONSTER);
+            } else {
+                rooms.push(RoomType.MERCHANT);
+            }
         }
 
-        // Always add boss room at the end
+        // Add merchant room before boss
+        rooms.push(RoomType.MERCHANT);
+        
+        // Add boss room at the end
         rooms.push(RoomType.BOSS);
 
         return rooms;
@@ -82,126 +89,202 @@ export default class DungeonScene extends Phaser.Scene {
         const roomType = this.rooms[this.currentRoom];
 
         // Clear previous room content
+        this.clearRoomContent();
+
+        // Get room info and display title
+        const roomInfo = this.getRoomInfo(roomType);
+        this.displayRoomTitle(roomInfo, width, height);
+
+        // Handle room specific content
+        switch (roomType) {
+            case RoomType.MONSTER:
+            case RoomType.BOSS:
+                this.showBattleRoom(width, height);
+                break;
+            case RoomType.CHEST:
+                this.showChestRoom(width, height);
+                break;
+            case RoomType.MERCHANT:
+                this.showMerchantRoom(width, height);
+                break;
+        }
+    }
+
+    private clearRoomContent(): void {
         this.children.getAll().forEach((child) => {
             // Keep the UI elements at the top
             if (child.y > 100) {
                 child.destroy();
             }
         });
+    }
 
-        // Room title
-        let roomTitle = '';
-        let roomEmoji = '';
-        let roomDescription = '';
-
+    private getRoomInfo(roomType: RoomType): { title: string; emoji: string; description: string } {
         switch (roomType) {
             case RoomType.MONSTER:
-                roomTitle = 'Monster Room';
-                roomEmoji = '👾';
-                roomDescription = 'A fearsome monster blocks your path!';
-                break;
+                return {
+                    title: 'Monster Room',
+                    emoji: '👾',
+                    description: 'A fearsome monster blocks your path!'
+                };
             case RoomType.CHEST:
-                roomTitle = 'Treasure Room';
-                roomEmoji = '💎';
-                roomDescription = 'You found a treasure chest!';
-                break;
+                return {
+                    title: 'Treasure Room',
+                    emoji: '💎',
+                    description: 'You found a treasure chest!'
+                };
             case RoomType.MERCHANT:
-                roomTitle = 'Merchant Room';
-                roomEmoji = '🏪';
-                roomDescription = 'A friendly merchant offers their wares.';
-                break;
+                return {
+                    title: 'Merchant Room',
+                    emoji: '🏪',
+                    description: 'A friendly merchant offers their wares.'
+                };
             case RoomType.BOSS:
-                roomTitle = 'Boss Room';
-                roomEmoji = '👑';
-                roomDescription = 'The dungeon boss awaits...';
-                break;
+                return {
+                    title: 'Boss Room',
+                    emoji: '👑',
+                    description: 'The dungeon boss awaits...'
+                };
         }
+    }
 
-        // Add room title
-        this.add.text(width / 2, height / 3, `${roomEmoji} ${roomTitle}`, {
+    private displayRoomTitle(roomInfo: { title: string; emoji: string; description: string }, width: number, height: number): void {
+        this.add.text(width / 2, height / 3, `${roomInfo.emoji} ${roomInfo.title}`, {
             font: 'bold 36px Arial',
             color: '#ffffff'
         }).setOrigin(0.5);
 
-        // Add room description
-        this.add.text(width / 2, height / 3 + 50, roomDescription, {
+        this.add.text(width / 2, height / 3 + 50, roomInfo.description, {
             font: '24px Arial',
             color: '#cccccc'
         }).setOrigin(0.5);
+    }
 
-        // Add appropriate button based on room type
-        if (roomType === RoomType.MONSTER || roomType === RoomType.BOSS) {
-            const battleButton = this.add.text(width / 2, height / 2 + 50, '⚔️ Start Battle', {
-                font: '32px Arial',
-                color: '#ffffff'
-            })
-                .setOrigin(0.5)
-                .setInteractive({ useHandCursor: true })
-                .on('pointerover', () => battleButton.setStyle({ color: '#ff0' }))
-                .on('pointerout', () => battleButton.setStyle({ color: '#ffffff' }))
-                .on('pointerdown', () => this.startBattle());
-        } else if (roomType === RoomType.CHEST) {
-            // Add some treasure chest content
-            this.add.text(width / 2, height / 2 + 50, '🎁 You found:', {
-                font: '24px Arial',
-                color: '#ffffff'
-            }).setOrigin(0.5);
+    private showBattleRoom(width: number, height: number): void {
+        const battleButton = this.add.text(width / 2, height / 2 + 50, '⚔️ Start Battle', {
+            font: '32px Arial',
+            color: '#ffffff'
+        })
+            .setOrigin(0.5)
+            .setInteractive({ useHandCursor: true })
+            .on('pointerover', () => battleButton.setStyle({ color: '#ff0' }))
+            .on('pointerout', () => battleButton.setStyle({ color: '#ffffff' }))
+            .on('pointerdown', () => this.startBattle());
+    }
 
-            // Random reward (gold, health potion, etc.)
-            const rewards = [
-                { text: '💰 50 Gold', action: () => this.player.addGold(50) },
-                { text: '🧪 Health Potion', action: () => this.player.heal(10) },
-                { text: '📜 Magic Scroll', action: () => this.player.restoreMp(5) }
-            ];
-            const reward = rewards[Math.floor(Math.random() * rewards.length)];
-            
-            this.add.text(width / 2, height / 2 + 90, reward.text, {
-                font: '28px Arial',
-                color: '#ffd700'
-            }).setOrigin(0.5);
+    private showChestRoom(width: number, height: number): void {
+        this.add.text(width / 2, height / 2 + 50, '🎁 You found:', {
+            font: '24px Arial',
+            color: '#ffffff'
+        }).setOrigin(0.5);
 
-            // Apply the reward
-            reward.action();
+        const possibleItems = this.getChestRewards();
+        const selectedReward = this.selectWeightedReward(possibleItems);
+        const rewardText = selectedReward.reward();
 
-            this.addContinueButton();
-        } else if (roomType === RoomType.MERCHANT) {
-            // Add merchant inventory
-            this.add.text(width / 2, height / 2 + 50, '🛍️ Items for sale:', {
-                font: '24px Arial',
-                color: '#ffffff'
-            }).setOrigin(0.5);
+        this.add.text(width / 2, height / 2 + 90, rewardText, {
+            font: '28px Arial',
+            color: '#ffd700'
+        }).setOrigin(0.5);
 
-            const items = [
-                { text: '⚔️ Sharp Sword (100 gold)', cost: 100, action: () => {} },
-                { text: '🛡️ Steel Shield (80 gold)', cost: 80, action: () => {} },
-                { text: '🧪 Health Potion (10 gold)', cost: 10, action: () => this.player.heal(10) }
-            ];
+        this.addContinueButton();
+    }
 
-            items.forEach((item, index) => {
-                const itemText = this.add.text(width / 2, height / 2 + 90 + (index * 30), item.text, {
-                    font: '20px Arial',
-                    color: this.player.gold >= item.cost ? '#cccccc' : '#666666'
-                })
-                    .setOrigin(0.5)
-                    .setInteractive({ useHandCursor: true });
-
-                if (this.player.gold >= item.cost) {
-                    itemText
-                        .on('pointerover', () => itemText.setStyle({ color: '#ff0' }))
-                        .on('pointerout', () => itemText.setStyle({ color: '#cccccc' }))
-                        .on('pointerdown', () => {
-                            if (this.player.spendGold(item.cost)) {
-                                item.action();
-                                itemText.setStyle({ color: '#666666' });
-                                itemText.removeInteractive();
-                                // Update gold display
-                                this.createUI();
-                            }
-                        });
+    private getChestRewards(): Array<{ weight: number; reward: () => string }> {
+        return [
+            {
+                weight: 40,
+                reward: () => {
+                    const gold = Math.floor(Math.random() * 30) + 20;
+                    this.player.addGold(gold);
+                    return `💰 ${gold} Gold`;
                 }
-            });
+            },
+            {
+                weight: 30,
+                reward: () => {
+                    this.player.addItem(ITEMS.HEALTH_POTION);
+                    return `${ITEMS.HEALTH_POTION.emoji} ${ITEMS.HEALTH_POTION.name}`;
+                }
+            },
+            {
+                weight: 20,
+                reward: () => {
+                    this.player.addItem(ITEMS.MAGIC_SCROLL);
+                    return `${ITEMS.MAGIC_SCROLL.emoji} ${ITEMS.MAGIC_SCROLL.name}`;
+                }
+            },
+            {
+                weight: 10,
+                reward: () => {
+                    this.player.addItem(ITEMS.LUCKY_CHARM);
+                    return `${ITEMS.LUCKY_CHARM.emoji} ${ITEMS.LUCKY_CHARM.name}`;
+                }
+            }
+        ];
+    }
 
-            this.addContinueButton();
+    private selectWeightedReward<T extends { weight: number }>(items: T[]): T {
+        const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
+        let random = Math.random() * totalWeight;
+        
+        for (const item of items) {
+            random -= item.weight;
+            if (random <= 0) {
+                return item;
+            }
+        }
+        
+        return items[0]; // Fallback to first item
+    }
+
+    private showMerchantRoom(width: number, height: number): void {
+        this.add.text(width / 2, height / 2 + 50, '🛍️ Items for sale:', {
+            font: '24px Arial',
+            color: '#ffffff'
+        }).setOrigin(0.5);
+
+        const merchantItems = [
+            ITEMS.SHARP_SWORD,
+            ITEMS.STEEL_SHIELD,
+            ITEMS.MAGIC_RING,
+            ITEMS.LUCKY_CHARM,
+            ITEMS.HEALTH_POTION,
+            ITEMS.MAGIC_SCROLL
+        ];
+
+        const selectedItems = [...merchantItems]
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 3);
+
+        selectedItems.forEach((item, index) => {
+            this.createMerchantItem(item, index, width, height);
+        });
+
+        this.addContinueButton();
+    }
+
+    private createMerchantItem(item: any, index: number, width: number, height: number): void {
+        const itemText = `${item.emoji} ${item.name} (${item.cost} gold)`;
+        const itemButton = this.add.text(width / 2, height / 2 + 90 + (index * 30), itemText, {
+            font: '20px Arial',
+            color: this.player.gold >= item.cost ? '#ffffff' : '#666666'
+        })
+            .setOrigin(0.5)
+            .setInteractive({ useHandCursor: true });
+
+        if (this.player.gold >= item.cost) {
+            itemButton
+                .on('pointerover', () => itemButton.setStyle({ color: '#ff0' }))
+                .on('pointerout', () => itemButton.setStyle({ color: '#ffffff' }))
+                .on('pointerdown', () => {
+                    if (this.player.spendGold(item.cost)) {
+                        this.player.addItem(item);
+                        itemButton.setStyle({ color: '#666666' });
+                        itemButton.removeInteractive();
+                        this.createUI();
+                    }
+                });
         }
     }
 

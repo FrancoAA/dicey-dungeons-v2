@@ -33,13 +33,15 @@ export default class BattleScene extends Phaser.Scene {
 
     constructor() {
         super({ key: 'BattleScene' });
-        this.diceManager = new DiceManager();
+        this.diceManager = new DiceManager(this.player);
     }
 
     init(data: { player: Player; isBoss: boolean; currentRoom: number }): void {
         this.player = data.player;
         this.currentRoom = data.currentRoom;
+        this.diceManager = new DiceManager(this.player);
         this.rerollsLeft = 2;
+        this.rerollsLeft += this.player.getBonusForType('reroll');
 
         // Create monster based on whether it's a boss fight
         if (data.isBoss) {
