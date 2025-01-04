@@ -10,6 +10,7 @@ export default class BattleScene extends Phaser.Scene {
     private diceSprites: Phaser.GameObjects.Text[] = [];
     private rerollsLeft: number = 2;
     private currentRoom!: number;
+    private monsterNextAttack!: number;
     
     // UI elements that need updating
     private playerHPText!: Phaser.GameObjects.Text;
@@ -73,8 +74,8 @@ export default class BattleScene extends Phaser.Scene {
             font: '24px Arial' 
         });
 
-        const nextAttack = this.monster.calculateAttack();
-        this.monsterNextAttackText = this.add.text(width - 200, 50, `Next Attack: ${nextAttack}`, { 
+        this.monsterNextAttack = this.monster.calculateAttack();
+        this.monsterNextAttackText = this.add.text(width - 200, 50, `Next Attack: ${this.monsterNextAttack}`, { 
             font: '24px Arial' 
         });
 
@@ -277,10 +278,16 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     private processDiceCombination(): void {
+        console.log('------ Player Turn Start ------');
+        console.log(`Current Player Stats: HP: ${this.player.hp}/${this.player.maxHp}, MP: ${this.player.mp}/${this.player.maxMp}`);
+        console.log(`Monster Stats: ${this.monster.name} HP: ${this.monster.hp}/${this.monster.maxHp}`);
+        
         const counts = new Map<DiceType, number>();
         this.dice.forEach(die => {
             counts.set(die.type, (counts.get(die.type) || 0) + 1);
         });
+
+        console.log('Dice Roll Results:', Array.from(counts.entries()).map(([type, count]) => `${type}: ${count}`));
 
         let damageDealt = 0;
         let defenseGained = 0;
@@ -292,6 +299,7 @@ export default class BattleScene extends Phaser.Scene {
             else if (attackCount === 4) damageDealt = 5;
             else damageDealt = 3;
 
+            console.log(`Attack Combo: ${attackCount} dice -> ${damageDealt} damage`);
             this.monster.takeDamage(damageDealt);
             this.showFloatingText(this.monsterHPText.x, this.monsterHPText.y, `-${damageDealt}`, '#ff0000');
         }
@@ -302,6 +310,7 @@ export default class BattleScene extends Phaser.Scene {
             if (defenseCount === 5) defenseGained = 999; // Immune
             else if (defenseCount === 4) defenseGained = 5;
             else defenseGained = 3;
+            console.log(`Defense Combo: ${defenseCount} dice -> ${defenseGained} defense`);
         }
 
         // Process magic dice
@@ -315,9 +324,13 @@ export default class BattleScene extends Phaser.Scene {
             else if (magicCount === 3) { mpCost = 3; magicDamage = 5; }
             else { mpCost = 2; magicDamage = 3; }
 
+            console.log(`Magic Combo Attempt: ${magicCount} dice -> Cost: ${mpCost} MP, Damage: ${magicDamage}`);
             if (this.player.useMp(mpCost)) {
+                console.log(`Magic Attack Success: Dealt ${magicDamage} magic damage`);
                 this.monster.takeDamage(magicDamage);
                 this.showFloatingText(this.monsterHPText.x, this.monsterHPText.y, `-${magicDamage}`, '#8800ff');
+            } else {
+                console.log('Magic Attack Failed: Not enough MP');
             }
         }
 
@@ -330,6 +343,7 @@ export default class BattleScene extends Phaser.Scene {
             else if (healCount === 3) healing = 4;
             else healing = 2;
 
+            console.log(`Healing Combo: ${healCount} dice -> ${healing} healing`);
             if (healing > 0) {
                 this.player.heal(healing);
                 this.showFloatingText(this.playerHPText.x, this.playerHPText.y, `+${healing}`, '#00ff00');
@@ -338,8 +352,11 @@ export default class BattleScene extends Phaser.Scene {
 
         this.updateUI();
 
+        console.log(`End of Player Turn - Monster HP: ${this.monster.hp}/${this.monster.maxHp}`);
+
         // Check for victory
         if (this.monster.isDead()) {
+            console.log('Victory! Monster defeated!');
             this.victory();
             return;
         }
@@ -367,22 +384,35 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     private monsterTurn(playerDefense: number): void {
-        const damage = Math.max(0, this.monster.calculateAttack() - playerDefense);
+        console.log('------ Monster Turn Start ------');
+        console.log(`Monster Attack Roll: ${this.monsterNextAttack}`);
+        console.log(`Player Defense: ${playerDefense}`);
+        
+        const damage = Math.max(0, this.monsterNextAttack - playerDefense);
+        console.log(`Final Damage After Defense: ${damage}`);
+
         if (damage > 0) {
             this.player.takeDamage(damage);
             this.showFloatingText(this.playerHPText.x, this.playerHPText.y, `-${damage}`, '#ff0000');
+            console.log(`Player took ${damage} damage. HP now: ${this.player.hp}/${this.player.maxHp}`);
+        } else {
+            console.log('Attack blocked by player defense!');
         }
 
         this.updateUI();
 
         if (this.player.hp <= 0) {
+            console.log('Game Over - Player defeated');
             this.defeat();
         } else {
             // Set up next turn
-            this.monsterNextAttackText.setText(`Next Attack: ${this.monster.calculateAttack()}`);
+            this.monsterNextAttack = this.monster.calculateAttack();
+            console.log(`Monster prepares next attack: ${this.monsterNextAttack}`);
+            this.monsterNextAttackText.setText(`Next Attack: ${this.monsterNextAttack}`);
             this.rerollsLeft = 2;
             this.rollDice();
             this.updateUI();
+            console.log('------ Turn End ------\n');
         }
     }
 
@@ -394,8 +424,16 @@ export default class BattleScene extends Phaser.Scene {
         const experienceGained = this.monster.experienceReward;
         const goldGained = this.monster.goldReward;
         
+        console.log('------ Battle Rewards ------');
+        console.log(`Experience gained: ${experienceGained}`);
+        console.log(`Gold gained: ${goldGained}`);
+        
         this.player.addGold(goldGained);
         const leveledUp = this.player.gainExperience(experienceGained);
+        
+        if (leveledUp) {
+            console.log(`Level Up! Player is now level ${this.player.level}`);
+        }
 
         // Show rewards
         const rewardText = this.add.text(width / 2, height / 2 - 50, 
