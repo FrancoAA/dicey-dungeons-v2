@@ -10,6 +10,7 @@ export default class BattleScene extends Phaser.Scene {
     private monsterHP: number = 0;
     private maxMonsterHP: number = 0;
     private nextMonsterAttack: number = 0;
+    private currentRoom!: number;
     
     // UI elements that need updating
     private playerHPText!: Phaser.GameObjects.Text;
@@ -24,9 +25,10 @@ export default class BattleScene extends Phaser.Scene {
         super({ key: 'BattleScene' });
     }
 
-    init(data: { player: PlayerStats; isBoss: boolean }): void {
+    init(data: { player: PlayerStats; isBoss: boolean; currentRoom: number }): void {
         this.player = data.player;
         this.isBoss = data.isBoss;
+        this.currentRoom = data.currentRoom;
         this.rerollsLeft = 2;
         this.monsterHP = this.isBoss ? 30 : 15;
         this.maxMonsterHP = this.monsterHP;
@@ -388,9 +390,13 @@ export default class BattleScene extends Phaser.Scene {
             color: '#ffffff'
         }).setOrigin(0.5);
 
-        // Return to dungeon scene after delay
+        // Return to dungeon scene after delay with updated player stats and room info
         this.time.delayedCall(2000, () => {
-            this.scene.start('DungeonScene', { player: this.player });
+            this.scene.start('DungeonScene', { 
+                player: this.player,
+                currentRoom: this.currentRoom + 1,
+                continueGame: true 
+            });
         });
     }
 

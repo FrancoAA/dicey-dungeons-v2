@@ -10,20 +10,31 @@ export default class DungeonScene extends Phaser.Scene {
         super({ key: 'DungeonScene' });
     }
 
-    create(): void {
-        // Initialize player stats
-        this.player = {
-            hp: 20,
-            maxHp: 20,
-            mp: 10,
-            maxMp: 10,
-            level: 1,
-            experience: 0
-        };
+    init(data?: { player: PlayerStats; currentRoom: number; continueGame: boolean }): void {
+        if (data?.continueGame) {
+            // Continue existing game
+            this.player = data.player;
+            this.currentRoom = data.currentRoom;
+        } else {
+            // Start new game
+            this.player = {
+                hp: 20,
+                maxHp: 20,
+                mp: 10,
+                maxMp: 10,
+                level: 1,
+                experience: 0
+            };
+            this.currentRoom = 0;
+            this.rooms = this.generateDungeon();
+        }
+    }
 
-        // Generate dungeon rooms
-        this.currentRoom = 0;
-        this.rooms = this.generateDungeon();
+    create(): void {
+        // Only generate new dungeon if starting fresh
+        if (this.rooms === undefined) {
+            this.rooms = this.generateDungeon();
+        }
 
         // Create UI
         this.createUI();
@@ -202,16 +213,7 @@ export default class DungeonScene extends Phaser.Scene {
         this.scene.start('BattleScene', { 
             player: this.player,
             isBoss: this.rooms[this.currentRoom] === RoomType.BOSS,
-            onComplete: (updatedPlayer: PlayerStats) => {
-                this.player = updatedPlayer;
-                this.currentRoom++;
-                if (this.currentRoom < this.rooms.length) {
-                    this.showRoom();
-                } else {
-                    // Victory!
-                    this.scene.start('MainMenuScene');
-                }
-            }
+            currentRoom: this.currentRoom
         });
     }
 }
