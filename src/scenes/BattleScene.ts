@@ -142,6 +142,9 @@ export default class BattleScene extends Phaser.Scene {
         this.playerMPBar = playerMP.bar;
         this.playerMPText = playerMP.text;
 
+        // Display equipped items
+        this.displayEquippedItems(characterX, healthBarY + 60);
+
         // Monster sprite and health
         this.monsterSprite = this.add.text(monsterX, characterY, this.monster.emoji, { 
             font: '64px Arial' 
@@ -205,6 +208,99 @@ export default class BattleScene extends Phaser.Scene {
             color: '#cccccc',
             align: 'center'
         }).setOrigin(0.5);
+    }
+
+    private displayEquippedItems(x: number, y: number): void {
+        const equippedItems = this.player.equippedItems;
+        const consumableItems = this.player.inventory.filter(item => item.consumable);
+
+        // Create container for item display
+        const itemsContainer = this.add.container(x - 150, y);
+
+        // Display equipped items
+        if (equippedItems.length > 0) {
+            const equippedTitle = this.add.text(0, 0, 'Equipped:', {
+                font: '16px Arial',
+                color: '#ffffff'
+            });
+            itemsContainer.add(equippedTitle);
+
+            equippedItems.forEach((item, index) => {
+                const itemText = this.add.text(0, 20 + index * 20, `${item.emoji} ${item.name}`, {
+                    font: '14px Arial',
+                    color: '#cccccc'
+                });
+                
+                // Add tooltip with item description
+                itemText.setInteractive({ useHandCursor: true })
+                    .on('pointerover', () => {
+                        itemText.setStyle({ color: '#ffffff' });
+                        const tooltip = this.add.text(itemText.x + 150, itemText.y, item.description, {
+                            font: '12px Arial',
+                            color: '#ffff00',
+                            backgroundColor: '#000000',
+                            padding: { x: 5, y: 3 }
+                        });
+                        itemText.tooltip = tooltip;
+                    })
+                    .on('pointerout', () => {
+                        itemText.setStyle({ color: '#cccccc' });
+                        if (itemText.tooltip) {
+                            itemText.tooltip.destroy();
+                            itemText.tooltip = null;
+                        }
+                    });
+
+                itemsContainer.add(itemText);
+            });
+        }
+
+        // Display consumable items
+        if (consumableItems.length > 0) {
+            const consumableTitle = this.add.text(300, 0, 'Items:', {
+                font: '16px Arial',
+                color: '#ffffff'
+            });
+            itemsContainer.add(consumableTitle);
+
+            consumableItems.forEach((item, index) => {
+                const itemText = this.add.text(300, 20 + index * 20, `${item.emoji} ${item.name}`, {
+                    font: '14px Arial',
+                    color: '#cccccc'
+                });
+
+                // Make consumable items clickable
+                itemText.setInteractive({ useHandCursor: true })
+                    .on('pointerover', () => {
+                        itemText.setStyle({ color: '#ffffff' });
+                        const tooltip = this.add.text(itemText.x + 150, itemText.y, item.description, {
+                            font: '12px Arial',
+                            color: '#ffff00',
+                            backgroundColor: '#000000',
+                            padding: { x: 5, y: 3 }
+                        });
+                        itemText.tooltip = tooltip;
+                    })
+                    .on('pointerout', () => {
+                        itemText.setStyle({ color: '#cccccc' });
+                        if (itemText.tooltip) {
+                            itemText.tooltip.destroy();
+                            itemText.tooltip = null;
+                        }
+                    })
+                    .on('pointerdown', () => {
+                        if (this.player.useItem(item.id)) {
+                            // Refresh the display after using an item
+                            itemsContainer.destroy();
+                            this.displayEquippedItems(x, y);
+                            // Update health/mana bars
+                            this.updateUI();
+                        }
+                    });
+
+                itemsContainer.add(itemText);
+            });
+        }
     }
 
     private updateUI(): void {
