@@ -416,11 +416,79 @@ export default class BattleScene extends Phaser.Scene {
         }
     }
 
-    private victory(): void {
+    private createDialog(title: string, content: string, btnText: string, buttonCallback: () => void): void {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
+        const dialogWidth = 400;
+        const dialogHeight = 300;
 
-        // Award experience and gold
+        // Create semi-transparent background
+        const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.7);
+        overlay.setOrigin(0);
+
+        // Create dialog background
+        const dialog = this.add.rectangle(
+            width / 2,
+            height / 2,
+            dialogWidth,
+            dialogHeight,
+            0x333333,
+            1
+        );
+        dialog.setOrigin(0.5);
+
+        // Add white border to dialog
+        const border = this.add.rectangle(
+            width / 2,
+            height / 2,
+            dialogWidth + 4,
+            dialogHeight + 4,
+            0xffffff,
+            1
+        );
+        border.setOrigin(0.5);
+        border.setDepth(-1);
+
+        // Add title
+        const titleText = this.add.text(width / 2, height / 2 - 100, title, {
+            font: 'bold 36px Arial',
+            color: '#ffffff',
+            align: 'center'
+        }).setOrigin(0.5);
+
+        // Add content
+        const contentText = this.add.text(width / 2, height / 2, content, {
+            font: '24px Arial',
+            color: '#ffffff',
+            align: 'center'
+        }).setOrigin(0.5);
+
+        // Add button
+        const button = this.add.rectangle(
+            width / 2,
+            height / 2 + 80,
+            200,
+            40,
+            0x4a90e2
+        );
+        const _buttonText = this.add.text(width / 2, height / 2 + 80, btnText, {
+            font: 'bold 20px Arial',
+            color: '#ffffff'
+        }).setOrigin(0.5);
+
+        button.setOrigin(0.5);
+        button.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => button.setFillStyle(0x357abd))
+            .on('pointerout', () => button.setFillStyle(0x4a90e2))
+            .on('pointerdown', () => {
+                // Clean up dialog elements
+                [overlay, dialog, border, titleText, contentText, button, _buttonText].forEach(obj => obj.destroy());
+                buttonCallback();
+            });
+        
+    }
+
+    private victory(): void {
         const experienceGained = this.monster.experienceReward;
         const goldGained = this.monster.goldReward;
         
@@ -435,36 +503,33 @@ export default class BattleScene extends Phaser.Scene {
             console.log(`Level Up! Player is now level ${this.player.level}`);
         }
 
-        // Show rewards
-        const rewardText = this.add.text(width / 2, height / 2 - 50, 
-            `🏆 Victory!\n\n💰 +${goldGained} Gold\n✨ +${experienceGained} XP${leveledUp ? '\n🌟 Level Up!' : ''}`, {
-            font: 'bold 32px Arial',
-            color: '#ffffff',
-            align: 'center'
-        }).setOrigin(0.5);
+        const content = 
+            `💰 +${goldGained} Gold\n` +
+            `✨ +${experienceGained} XP\n` +
+            (leveledUp ? '🌟 Level Up!' : '');
 
-        // Return to dungeon scene after delay
-        this.time.delayedCall(2000, () => {
-            this.scene.start('DungeonScene', { 
-                player: this.player,
-                currentRoom: this.currentRoom + 1,
-                continueGame: true 
-            });
-        });
+        this.createDialog(
+            '🏆 Victory!',
+            content,
+            'Continue ▶️',
+            () => {
+                this.scene.start('DungeonScene', { 
+                    player: this.player,
+                    currentRoom: this.currentRoom + 1,
+                    continueGame: true 
+                });
+            }
+        );
     }
 
     private defeat(): void {
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-
-        this.add.text(width / 2, height / 2, '💀 Defeat!', {
-            font: 'bold 48px Arial',
-            color: '#ffffff'
-        }).setOrigin(0.5);
-
-        // Return to main menu after delay
-        this.time.delayedCall(2000, () => {
-            this.scene.start('MainMenuScene');
-        });
+        this.createDialog(
+            '💀 Defeat!',
+            'Your journey ends here...\nBetter luck next time!',
+            'Return to Menu',
+            () => {
+                this.scene.start('MainMenuScene');
+            }
+        );
     }
 }
