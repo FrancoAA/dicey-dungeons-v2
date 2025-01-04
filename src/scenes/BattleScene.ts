@@ -8,6 +8,8 @@ export default class BattleScene extends Phaser.Scene {
     private monster!: Monster;
     private dice: DiceResult[] = [];
     private diceSprites: Phaser.GameObjects.Text[] = [];
+    private diceLocks: Phaser.GameObjects.Text[] = [];
+    private lockedDice: boolean[] = [];
     private rerollsLeft: number = 2;
     private currentRoom!: number;
     private monsterNextAttack!: number;
@@ -128,58 +130,61 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     private rollDice(): void {
-        this.dice = [];
-        for (let i = 0; i < 5; i++) {
-            const value = Phaser.Math.Between(1, 6);
-            let type: DiceType;
-            
-            if (value <= 2) type = DiceType.ATTACK;
-            else if (value <= 4) type = DiceType.DEFENSE;
-            else if (value === 5) type = DiceType.MAGIC;
-            else type = DiceType.HEALTH;
+        // Clear existing dice
+        this.diceSprites.forEach(sprite => sprite.destroy());
+        this.diceSprites = [];
+        this.diceLocks.forEach(lock => lock?.destroy());
+        this.diceLocks = [];
 
-            this.dice.push({
-                type,
-                value,
-                locked: false
-            });
+        // Initialize locked dice array if it's empty
+        if (this.lockedDice.length !== 5) {
+            this.lockedDice = Array(5).fill(false);
         }
 
-        this.showDice();
-        this.updateUI();
-    }
+        // Roll new dice or keep locked ones
+        for (let i = 0; i < 5; i++) {
+            if (!this.lockedDice[i]) {
+                const diceTypes = [DiceType.ATTACK, DiceType.DEFENSE, DiceType.MAGIC, DiceType.HEALTH];
+                const randomType = diceTypes[Math.floor(Math.random() * diceTypes.length)];
+                this.dice[i] = { type: randomType };
+            }
+        }
 
-    private showDice(): void {
+        // Display dice
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
-        
-        // Clear existing dice
-        this.diceSprites.forEach((sprite) => {
-            sprite.destroy();
-        });
-        
-        // Position dice in the center of the screen
-        this.diceSprites = [];
+        const diceSpacing = 80;
+        const startX = width / 2 - (diceSpacing * 2);
+        const diceY = height - 150;
+
         this.dice.forEach((die, index) => {
-            const x = width / 2 + (index - 2) * 80;
-            const y = height / 2;
-            
-            const dieText = this.add.text(x, y, die.type, {
+            let emoji = '⚔️';
+            switch (die.type) {
+                case DiceType.DEFENSE: emoji = '🛡️'; break;
+                case DiceType.MAGIC: emoji = '✨'; break;
+                case DiceType.HEALTH: emoji = '❤️'; break;
+            }
+
+            const diceSprite = this.add.text(startX + (diceSpacing * index), diceY, emoji, {
                 font: '48px Arial'
             })
                 .setOrigin(0.5)
                 .setInteractive({ useHandCursor: true })
-                .on('pointerdown', () => this.toggleDieLock(index));
+                .on('pointerdown', () => this.toggleDiceLock(index));
 
-            this.diceSprites.push(dieText);
+            this.diceSprites[index] = diceSprite;
 
-            if (die.locked) {
-                dieText.setStyle({ color: '#ff0' });
+            // Add lock emoji if die is locked
+            if (this.lockedDice[index]) {
+                const lockSprite = this.add.text(startX + (diceSpacing * index), diceY + 40, '🔒', {
+                    font: '24px Arial'
+                }).setOrigin(0.5);
+                this.diceLocks[index] = lockSprite;
             }
         });
 
-        // Update effect preview
         this.updateEffectPreview();
+        this.updateUI();
     }
 
     private updateEffectPreview(): void {
@@ -245,36 +250,31 @@ export default class BattleScene extends Phaser.Scene {
         }
     }
 
-    private toggleDieLock(index: number): void {
-        this.dice[index].locked = !this.dice[index].locked;
-        this.showDice();
+    private toggleDiceLock(index: number): void {
+        if (this.rerollsLeft > 0) {
+            this.lockedDice[index] = !this.lockedDice[index];
+            
+            // Update lock display
+            if (this.diceLocks[index]) {
+                this.diceLocks[index].destroy();
+                this.diceLocks[index] = null;
+            }
+            
+            if (this.lockedDice[index]) {
+                const diceSprite = this.diceSprites[index];
+                const lockSprite = this.add.text(diceSprite.x, diceSprite.y + 40, '🔒', {
+                    font: '24px Arial'
+                }).setOrigin(0.5);
+                this.diceLocks[index] = lockSprite;
+            }
+        }
     }
 
     private rerollDice(): void {
-        if (this.rerollsLeft <= 0) return;
-
-        // Only reroll unlocked dice
-        this.dice.forEach((die, index) => {
-            if (!die.locked) {
-                const value = Phaser.Math.Between(1, 6);
-                let type: DiceType;
-                
-                if (value <= 2) type = DiceType.ATTACK;
-                else if (value <= 4) type = DiceType.DEFENSE;
-                else if (value === 5) type = DiceType.MAGIC;
-                else type = DiceType.HEALTH;
-
-                this.dice[index] = {
-                    type,
-                    value,
-                    locked: false
-                };
-            }
-        });
-
-        this.rerollsLeft--;
-        this.showDice(); // This will also update the effect preview
-        this.updateUI();
+        if (this.rerollsLeft > 0) {
+            this.rerollsLeft--;
+            this.rollDice();
+        }
     }
 
     private processDiceCombination(): void {
@@ -349,6 +349,13 @@ export default class BattleScene extends Phaser.Scene {
                 this.showFloatingText(this.playerHPText.x, this.playerHPText.y, `+${healing}`, '#00ff00');
             }
         }
+
+        // Reset all dice locks
+        this.lockedDice = Array(5).fill(false);
+        this.diceLocks.forEach(lock => {
+            if (lock) lock.destroy();
+        });
+        this.diceLocks = [];
 
         this.updateUI();
 
