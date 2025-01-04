@@ -37,6 +37,6 @@ export default class MainMenuScene extends Phaser.Scene {
     }
 
     private startGame(): void {
-        this.scene.start('DungeonScene');
+        this.scene.start('DungeonScene', { continueGame: false });
     }
 }
