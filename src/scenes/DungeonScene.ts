@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { PlayerStats, RoomType } from '../types/GameTypes';
+import { RoomType } from '../types/GameTypes';
+import { Player } from '../game/Player';
 
 export default class DungeonScene extends Phaser.Scene {
-    private player!: PlayerStats;
+    private player!: Player;
     private currentRoom!: number;
     private rooms!: RoomType[];
 
@@ -10,21 +11,14 @@ export default class DungeonScene extends Phaser.Scene {
         super({ key: 'DungeonScene' });
     }
 
-    init(data?: { player: PlayerStats; currentRoom: number; continueGame: boolean }): void {
+    init(data?: { player: Player; currentRoom: number; continueGame: boolean }): void {
         if (data?.continueGame) {
             // Continue existing game
             this.player = data.player;
             this.currentRoom = data.currentRoom;
         } else {
             // Start new game
-            this.player = {
-                hp: 20,
-                maxHp: 20,
-                mp: 10,
-                maxMp: 10,
-                level: 1,
-                experience: 0
-            };
+            this.player = new Player();
             this.currentRoom = 0;
             this.rooms = this.generateDungeon();
         }
@@ -41,6 +35,26 @@ export default class DungeonScene extends Phaser.Scene {
 
         // Show current room
         this.showRoom();
+    }
+
+    private createUI(): void {
+        const width = this.cameras.main.width;
+
+        // Player stats
+        this.add.text(20, 20, '❤️', { font: '24px Arial' });
+        this.add.text(60, 20, `${this.player.hp}/${this.player.maxHp}`, { font: '24px Arial' });
+        
+        this.add.text(20, 50, '✨', { font: '24px Arial' });
+        this.add.text(60, 50, `${this.player.mp}/${this.player.maxMp}`, { font: '24px Arial' });
+
+        // Level and gold
+        this.add.text(200, 20, `📊 Level ${this.player.level}`, { font: '24px Arial' });
+        this.add.text(200, 50, `💰 ${this.player.gold} Gold`, { font: '24px Arial' });
+
+        // Room progress
+        this.add.text(width - 150, 20, `Room: ${this.currentRoom + 1}/${this.rooms.length}`, { 
+            font: '24px Arial' 
+        });
     }
 
     private generateDungeon(): RoomType[] {
@@ -60,23 +74,6 @@ export default class DungeonScene extends Phaser.Scene {
         rooms.push(RoomType.BOSS);
 
         return rooms;
-    }
-
-    private createUI(): void {
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-
-        // Stats display
-        this.add.text(20, 20, '❤️', { font: '24px Arial' });
-        this.add.text(60, 20, `${this.player.hp}/${this.player.maxHp}`, { font: '24px Arial' });
-        
-        this.add.text(20, 50, '✨', { font: '24px Arial' });
-        this.add.text(60, 50, `${this.player.mp}/${this.player.maxMp}`, { font: '24px Arial' });
-
-        // Room progress
-        this.add.text(width - 150, 20, `Room: ${this.currentRoom + 1}/${this.rooms.length}`, { 
-            font: '24px Arial' 
-        });
     }
 
     private showRoom(): void {
@@ -151,13 +148,20 @@ export default class DungeonScene extends Phaser.Scene {
             }).setOrigin(0.5);
 
             // Random reward (gold, health potion, etc.)
-            const rewards = ['💰 50 Gold', '🧪 Health Potion', '📜 Magic Scroll'];
+            const rewards = [
+                { text: '💰 50 Gold', action: () => this.player.addGold(50) },
+                { text: '🧪 Health Potion', action: () => this.player.heal(10) },
+                { text: '📜 Magic Scroll', action: () => this.player.restoreMp(5) }
+            ];
             const reward = rewards[Math.floor(Math.random() * rewards.length)];
             
-            this.add.text(width / 2, height / 2 + 90, reward, {
+            this.add.text(width / 2, height / 2 + 90, reward.text, {
                 font: '28px Arial',
                 color: '#ffd700'
             }).setOrigin(0.5);
+
+            // Apply the reward
+            reward.action();
 
             this.addContinueButton();
         } else if (roomType === RoomType.MERCHANT) {
@@ -168,16 +172,33 @@ export default class DungeonScene extends Phaser.Scene {
             }).setOrigin(0.5);
 
             const items = [
-                '⚔️ Sharp Sword (100 gold)',
-                '🛡️ Steel Shield (80 gold)',
-                '🧪 Health Potion (50 gold)'
+                { text: '⚔️ Sharp Sword (100 gold)', cost: 100, action: () => {} },
+                { text: '🛡️ Steel Shield (80 gold)', cost: 80, action: () => {} },
+                { text: '🧪 Health Potion (10 gold)', cost: 10, action: () => this.player.heal(10) }
             ];
 
             items.forEach((item, index) => {
-                this.add.text(width / 2, height / 2 + 90 + (index * 30), item, {
+                const itemText = this.add.text(width / 2, height / 2 + 90 + (index * 30), item.text, {
                     font: '20px Arial',
-                    color: '#cccccc'
-                }).setOrigin(0.5);
+                    color: this.player.gold >= item.cost ? '#cccccc' : '#666666'
+                })
+                    .setOrigin(0.5)
+                    .setInteractive({ useHandCursor: true });
+
+                if (this.player.gold >= item.cost) {
+                    itemText
+                        .on('pointerover', () => itemText.setStyle({ color: '#ff0' }))
+                        .on('pointerout', () => itemText.setStyle({ color: '#cccccc' }))
+                        .on('pointerdown', () => {
+                            if (this.player.spendGold(item.cost)) {
+                                item.action();
+                                itemText.setStyle({ color: '#666666' });
+                                itemText.removeInteractive();
+                                // Update gold display
+                                this.createUI();
+                            }
+                        });
+                }
             });
 
             this.addContinueButton();
@@ -199,6 +220,14 @@ export default class DungeonScene extends Phaser.Scene {
             .on('pointerdown', () => this.continueToNextRoom());
     }
 
+    private startBattle(): void {
+        this.scene.start('BattleScene', { 
+            player: this.player,
+            isBoss: this.rooms[this.currentRoom] === RoomType.BOSS,
+            currentRoom: this.currentRoom
+        });
+    }
+
     private continueToNextRoom(): void {
         this.currentRoom++;
         if (this.currentRoom < this.rooms.length) {
@@ -207,13 +236,5 @@ export default class DungeonScene extends Phaser.Scene {
             // Victory! (shouldn't happen as boss room should handle this)
             this.scene.start('MainMenuScene');
         }
-    }
-
-    private startBattle(): void {
-        this.scene.start('BattleScene', { 
-            player: this.player,
-            isBoss: this.rooms[this.currentRoom] === RoomType.BOSS,
-            currentRoom: this.currentRoom
-        });
     }
 }

@@ -1,15 +1,14 @@
 import Phaser from 'phaser';
-import { PlayerStats, DiceType, DiceResult } from '../types/GameTypes';
+import { DiceType, DiceResult } from '../types/GameTypes';
+import { Player } from '../game/Player';
+import { Monster, MonsterTypes, BossTypes } from '../game/Monster';
 
 export default class BattleScene extends Phaser.Scene {
-    private player!: PlayerStats;
+    private player!: Player;
+    private monster!: Monster;
     private dice: DiceResult[] = [];
     private diceSprites: Phaser.GameObjects.Text[] = [];
     private rerollsLeft: number = 2;
-    private isBoss: boolean = false;
-    private monsterHP: number = 0;
-    private maxMonsterHP: number = 0;
-    private nextMonsterAttack: number = 0;
     private currentRoom!: number;
     
     // UI elements that need updating
@@ -25,14 +24,21 @@ export default class BattleScene extends Phaser.Scene {
         super({ key: 'BattleScene' });
     }
 
-    init(data: { player: PlayerStats; isBoss: boolean; currentRoom: number }): void {
+    init(data: { player: Player; isBoss: boolean; currentRoom: number }): void {
         this.player = data.player;
-        this.isBoss = data.isBoss;
         this.currentRoom = data.currentRoom;
         this.rerollsLeft = 2;
-        this.monsterHP = this.isBoss ? 30 : 15;
-        this.maxMonsterHP = this.monsterHP;
-        this.nextMonsterAttack = this.calculateMonsterAttack();
+
+        // Create monster based on whether it's a boss fight
+        if (data.isBoss) {
+            const bossTypes = Object.values(BossTypes);
+            const randomBoss = bossTypes[Math.floor(Math.random() * bossTypes.length)];
+            this.monster = new Monster(randomBoss);
+        } else {
+            const monsterTypes = Object.values(MonsterTypes);
+            const randomMonster = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
+            this.monster = new Monster(randomMonster);
+        }
     }
 
     create(): void {
@@ -52,17 +58,23 @@ export default class BattleScene extends Phaser.Scene {
 
         // Player stats
         this.add.text(20, 20, '❤️', { font: '24px Arial' });
-        this.playerHPText = this.add.text(60, 20, `${this.player.hp}/${this.player.maxHp}`, { font: '24px Arial' });
-        
-        this.add.text(20, 50, '✨', { font: '24px Arial' });
-        this.playerMPText = this.add.text(60, 50, `${this.player.mp}/${this.player.maxMp}`, { font: '24px Arial' });
-
-        // Monster stats
-        const monsterEmoji = this.isBoss ? '👑' : '👾';
-        this.monsterHPText = this.add.text(width - 200, 20, `${monsterEmoji} HP: ${this.monsterHP}/${this.maxMonsterHP}`, { 
+        this.playerHPText = this.add.text(60, 20, `${this.player.hp}/${this.player.maxHp}`, { 
             font: '24px Arial' 
         });
-        this.monsterNextAttackText = this.add.text(width - 200, 50, `Next Attack: ${this.nextMonsterAttack}`, { 
+        
+        this.add.text(20, 50, '✨', { font: '24px Arial' });
+        this.playerMPText = this.add.text(60, 50, `${this.player.mp}/${this.player.maxMp}`, { 
+            font: '24px Arial' 
+        });
+
+        // Monster stats
+        this.monsterHPText = this.add.text(width - 200, 20, 
+            `${this.monster.emoji} ${this.monster.name} HP: ${this.monster.hp}/${this.monster.maxHp}`, { 
+            font: '24px Arial' 
+        });
+
+        const nextAttack = this.monster.calculateAttack();
+        this.monsterNextAttackText = this.add.text(width - 200, 50, `Next Attack: ${nextAttack}`, { 
             font: '24px Arial' 
         });
 
@@ -102,9 +114,9 @@ export default class BattleScene extends Phaser.Scene {
         this.playerHPText.setText(`${this.player.hp}/${this.player.maxHp}`);
         this.playerMPText.setText(`${this.player.mp}/${this.player.maxMp}`);
         
-        const monsterEmoji = this.isBoss ? '👑' : '👾';
-        this.monsterHPText.setText(`${monsterEmoji} HP: ${this.monsterHP}/${this.maxMonsterHP}`);
-        this.monsterNextAttackText.setText(`Next Attack: ${this.nextMonsterAttack}`);
+        this.monsterHPText.setText(
+            `${this.monster.emoji} ${this.monster.name} HP: ${this.monster.hp}/${this.monster.maxHp}`
+        );
         
         if (this.rerollsLeft > 0) {
             this.rerollButton.setText(`🎲 Reroll (${this.rerollsLeft} left)`);
@@ -265,7 +277,6 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     private processDiceCombination(): void {
-        // Count dice by type
         const counts = new Map<DiceType, number>();
         this.dice.forEach(die => {
             counts.set(die.type, (counts.get(die.type) || 0) + 1);
@@ -281,8 +292,7 @@ export default class BattleScene extends Phaser.Scene {
             else if (attackCount === 4) damageDealt = 5;
             else damageDealt = 3;
 
-            this.monsterHP -= damageDealt;
-            // Show damage number
+            this.monster.takeDamage(damageDealt);
             this.showFloatingText(this.monsterHPText.x, this.monsterHPText.y, `-${damageDealt}`, '#ff0000');
         }
 
@@ -296,7 +306,7 @@ export default class BattleScene extends Phaser.Scene {
 
         // Process magic dice
         const magicCount = counts.get(DiceType.MAGIC) || 0;
-        if (magicCount >= 2 && this.player.mp >= 2) {
+        if (magicCount >= 2) {
             let mpCost = 0;
             let magicDamage = 0;
             
@@ -305,9 +315,8 @@ export default class BattleScene extends Phaser.Scene {
             else if (magicCount === 3) { mpCost = 3; magicDamage = 5; }
             else { mpCost = 2; magicDamage = 3; }
 
-            if (this.player.mp >= mpCost) {
-                this.player.mp -= mpCost;
-                this.monsterHP -= magicDamage;
+            if (this.player.useMp(mpCost)) {
+                this.monster.takeDamage(magicDamage);
                 this.showFloatingText(this.monsterHPText.x, this.monsterHPText.y, `-${magicDamage}`, '#8800ff');
             }
         }
@@ -322,7 +331,7 @@ export default class BattleScene extends Phaser.Scene {
             else healing = 2;
 
             if (healing > 0) {
-                this.player.hp = Math.min(this.player.maxHp, this.player.hp + healing);
+                this.player.heal(healing);
                 this.showFloatingText(this.playerHPText.x, this.playerHPText.y, `+${healing}`, '#00ff00');
             }
         }
@@ -330,7 +339,7 @@ export default class BattleScene extends Phaser.Scene {
         this.updateUI();
 
         // Check for victory
-        if (this.monsterHP <= 0) {
+        if (this.monster.isDead()) {
             this.victory();
             return;
         }
@@ -357,14 +366,10 @@ export default class BattleScene extends Phaser.Scene {
         });
     }
 
-    private calculateMonsterAttack(): number {
-        return this.isBoss ? Phaser.Math.Between(4, 8) : Phaser.Math.Between(2, 5);
-    }
-
     private monsterTurn(playerDefense: number): void {
-        const damage = Math.max(0, this.nextMonsterAttack - playerDefense);
+        const damage = Math.max(0, this.monster.calculateAttack() - playerDefense);
         if (damage > 0) {
-            this.player.hp -= damage;
+            this.player.takeDamage(damage);
             this.showFloatingText(this.playerHPText.x, this.playerHPText.y, `-${damage}`, '#ff0000');
         }
 
@@ -374,7 +379,7 @@ export default class BattleScene extends Phaser.Scene {
             this.defeat();
         } else {
             // Set up next turn
-            this.nextMonsterAttack = this.calculateMonsterAttack();
+            this.monsterNextAttackText.setText(`Next Attack: ${this.monster.calculateAttack()}`);
             this.rerollsLeft = 2;
             this.rollDice();
             this.updateUI();
@@ -385,12 +390,22 @@ export default class BattleScene extends Phaser.Scene {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 
-        this.add.text(width / 2, height / 2, '🏆 Victory!', {
-            font: 'bold 48px Arial',
-            color: '#ffffff'
+        // Award experience and gold
+        const experienceGained = this.monster.experienceReward;
+        const goldGained = this.monster.goldReward;
+        
+        this.player.addGold(goldGained);
+        const leveledUp = this.player.gainExperience(experienceGained);
+
+        // Show rewards
+        const rewardText = this.add.text(width / 2, height / 2 - 50, 
+            `🏆 Victory!\n\n💰 +${goldGained} Gold\n✨ +${experienceGained} XP${leveledUp ? '\n🌟 Level Up!' : ''}`, {
+            font: 'bold 32px Arial',
+            color: '#ffffff',
+            align: 'center'
         }).setOrigin(0.5);
 
-        // Return to dungeon scene after delay with updated player stats and room info
+        // Return to dungeon scene after delay
         this.time.delayedCall(2000, () => {
             this.scene.start('DungeonScene', { 
                 player: this.player,
