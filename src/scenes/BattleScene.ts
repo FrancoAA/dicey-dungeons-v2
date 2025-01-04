@@ -61,6 +61,39 @@ export default class BattleScene extends Phaser.Scene {
         this.rollDice();
     }
 
+    private createHealthBar(x: number, y: number, width: number, height: number, color: number, initialHP: number, maxHP: number): {
+        background: Phaser.GameObjects.Rectangle,
+        bar: Phaser.GameObjects.Rectangle,
+        text: Phaser.GameObjects.Text
+    } {
+        // Create background
+        const background = this.add.rectangle(
+            x - width/2,  // Adjust x position for left alignment
+            y,
+            width,
+            height,
+            0x666666
+        ).setOrigin(0, 0.5);  // Set origin to left center
+
+        // Create health bar
+        const bar = this.add.rectangle(
+            x - width/2,  // Align with background
+            y,
+            width,
+            height,
+            color
+        ).setOrigin(0, 0.5);  // Set origin to left center
+
+        // Create HP text
+        const text = this.add.text(x, y, 
+            `${initialHP}/${maxHP}`, { 
+            font: '16px Arial',
+            color: '#000000'
+        }).setOrigin(0.5);
+
+        return { background, bar, text };
+    }
+
     private createBattleUI(): void {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
@@ -76,30 +109,19 @@ export default class BattleScene extends Phaser.Scene {
             font: '64px Arial' 
         }).setOrigin(0.5);
 
-        // Player health bar background
-        this.playerHealthBarBg = this.add.rectangle(
+        // Create player health bar
+        const playerHealth = this.createHealthBar(
             width / 4,
             healthBarY,
             healthBarWidth,
             healthBarHeight,
-            0x666666
-        ).setOrigin(0.5);
-
-        // Player health bar
-        this.playerHealthBar = this.add.rectangle(
-            width / 4,
-            healthBarY,
-            healthBarWidth,
-            healthBarHeight,
-            0x00ff00
-        ).setOrigin(0.5);
-
-        // Player health text (inside health bar)
-        this.playerHPText = this.add.text(width / 4, healthBarY, 
-            `${this.player.hp}/${this.player.maxHp}`, { 
-            font: '16px Arial',
-            color: '#000000'
-        }).setOrigin(0.5);
+            0x00ff00,
+            this.player.hp,
+            this.player.maxHp
+        );
+        this.playerHealthBarBg = playerHealth.background;
+        this.playerHealthBar = playerHealth.bar;
+        this.playerHPText = playerHealth.text;
         
         // Player MP text
         this.add.text(width / 4 - healthBarWidth/2, healthBarY + 30, '✨', { 
@@ -122,30 +144,19 @@ export default class BattleScene extends Phaser.Scene {
             align: 'center'
         }).setOrigin(0.5);
 
-        // Monster health bar background
-        this.monsterHealthBarBg = this.add.rectangle(
+        // Create monster health bar
+        const monsterHealth = this.createHealthBar(
             3 * width / 4,
             healthBarY,
             healthBarWidth,
             healthBarHeight,
-            0x666666
-        ).setOrigin(0.5);
-
-        // Monster health bar
-        this.monsterHealthBar = this.add.rectangle(
-            3 * width / 4,
-            healthBarY,
-            healthBarWidth,
-            healthBarHeight,
-            0xff0000
-        ).setOrigin(0.5);
-
-        // Monster health text (inside health bar)
-        this.monsterHPText = this.add.text(3 * width / 4, healthBarY, 
-            `${this.monster.hp}/${this.monster.maxHp}`, { 
-            font: '16px Arial',
-            color: '#000000'
-        }).setOrigin(0.5);
+            0xff0000,
+            this.monster.hp,
+            this.monster.maxHp
+        );
+        this.monsterHealthBarBg = monsterHealth.background;
+        this.monsterHealthBar = monsterHealth.bar;
+        this.monsterHPText = monsterHealth.text;
 
         // Monster's next attack text (below health bar)
         this.monsterNextAttackText = this.add.text(3 * width / 4, healthBarY + 30, 
@@ -191,8 +202,12 @@ export default class BattleScene extends Phaser.Scene {
         const playerHealthPercent = this.player.hp / this.player.maxHp;
         const monsterHealthPercent = this.monster.hp / this.monster.maxHp;
 
+        // Scale health bars from right to left
         this.playerHealthBar.setScale(playerHealthPercent, 1);
+        this.playerHealthBar.setOrigin(0, 0.5);
+        
         this.monsterHealthBar.setScale(monsterHealthPercent, 1);
+        this.monsterHealthBar.setOrigin(0, 0.5);
 
         // Update text displays
         this.playerHPText.setText(`${this.player.hp}/${this.player.maxHp}`);
