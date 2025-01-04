@@ -1,15 +1,15 @@
 import Phaser from 'phaser';
-import { DiceType, DiceResult } from '../types/GameTypes';
+import { DiceType } from '../types/GameTypes';
 import { Player } from '../game/Player';
 import { Monster, MonsterTypes, BossTypes } from '../game/Monster';
+import { DiceManager, DiceResult } from '../game/DiceManager';
 
 export default class BattleScene extends Phaser.Scene {
     private player!: Player;
     private monster!: Monster;
-    private dice: DiceResult[] = [];
+    private diceManager: DiceManager;
     private diceSprites: Phaser.GameObjects.Text[] = [];
     private diceLocks: Phaser.GameObjects.Text[] = [];
-    private lockedDice: boolean[] = [];
     private rerollsLeft: number = 2;
     private currentRoom!: number;
     private monsterNextAttack!: number;
@@ -25,6 +25,7 @@ export default class BattleScene extends Phaser.Scene {
 
     constructor() {
         super({ key: 'BattleScene' });
+        this.diceManager = new DiceManager();
     }
 
     init(data: { player: Player; isBoss: boolean; currentRoom: number }): void {
@@ -42,6 +43,8 @@ export default class BattleScene extends Phaser.Scene {
             const randomMonster = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
             this.monster = new Monster(randomMonster);
         }
+
+        this.monsterNextAttack = this.monster.calculateAttack();
     }
 
     create(): void {
@@ -76,7 +79,6 @@ export default class BattleScene extends Phaser.Scene {
             font: '24px Arial' 
         });
 
-        this.monsterNextAttack = this.monster.calculateAttack();
         this.monsterNextAttackText = this.add.text(width - 200, 50, `Next Attack: ${this.monsterNextAttack}`, { 
             font: '24px Arial' 
         });
@@ -136,19 +138,10 @@ export default class BattleScene extends Phaser.Scene {
         this.diceLocks.forEach(lock => lock?.destroy());
         this.diceLocks = [];
 
-        // Initialize locked dice array if it's empty
-        if (this.lockedDice.length !== 5) {
-            this.lockedDice = Array(5).fill(false);
-        }
-
-        // Roll new dice or keep locked ones
-        for (let i = 0; i < 5; i++) {
-            if (!this.lockedDice[i]) {
-                const diceTypes = [DiceType.ATTACK, DiceType.DEFENSE, DiceType.MAGIC, DiceType.HEALTH];
-                const randomType = diceTypes[Math.floor(Math.random() * diceTypes.length)];
-                this.dice[i] = { type: randomType };
-            }
-        }
+        // Roll new dice
+        this.diceManager.roll();
+        const dice = this.diceManager.getDice();
+        const lockedDice = this.diceManager.getDiceLocks();
 
         // Display dice
         const width = this.cameras.main.width;
@@ -157,7 +150,7 @@ export default class BattleScene extends Phaser.Scene {
         const startX = width / 2 - (diceSpacing * 2);
         const diceY = height - 150;
 
-        this.dice.forEach((die, index) => {
+        dice.forEach((die, index) => {
             let emoji = '⚔️';
             switch (die.type) {
                 case DiceType.DEFENSE: emoji = '🛡️'; break;
@@ -175,7 +168,7 @@ export default class BattleScene extends Phaser.Scene {
             this.diceSprites[index] = diceSprite;
 
             // Add lock emoji if die is locked
-            if (this.lockedDice[index]) {
+            if (lockedDice[index]) {
                 const lockSprite = this.add.text(startX + (diceSpacing * index), diceY + 40, '🔒', {
                     font: '24px Arial'
                 }).setOrigin(0.5);
@@ -188,71 +181,13 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     private updateEffectPreview(): void {
-        const counts = new Map<DiceType, number>();
-        this.dice.forEach(die => {
-            counts.set(die.type, (counts.get(die.type) || 0) + 1);
-        });
-
-        const effects: string[] = [];
-
-        // Attack preview
-        const attackCount = counts.get(DiceType.ATTACK) || 0;
-        if (attackCount >= 3) {
-            let damage = 0;
-            if (attackCount === 5) damage = 8;
-            else if (attackCount === 4) damage = 5;
-            else damage = 3;
-            effects.push(`⚔️ Deal ${damage} damage`);
-        }
-
-        // Defense preview
-        const defenseCount = counts.get(DiceType.DEFENSE) || 0;
-        if (defenseCount >= 3) {
-            if (defenseCount === 5) effects.push(`🛡️ Perfect Defense (immune to next attack)`);
-            else if (defenseCount === 4) effects.push(`🛡️ Block ${5} damage`);
-            else effects.push(`🛡️ Block ${3} damage`);
-        }
-
-        // Magic preview
-        const magicCount = counts.get(DiceType.MAGIC) || 0;
-        if (magicCount >= 2) {
-            let mpCost = 0;
-            let magicDamage = 0;
-            
-            if (magicCount === 5) { mpCost = 8; magicDamage = 12; }
-            else if (magicCount === 4) { mpCost = 5; magicDamage = 8; }
-            else if (magicCount === 3) { mpCost = 3; magicDamage = 5; }
-            else { mpCost = 2; magicDamage = 3; }
-
-            const canCast = this.player.mp >= mpCost;
-            effects.push(`✨ ${canCast ? '' : '(Not enough MP) '}Deal ${magicDamage} magic damage (${mpCost} MP)`);
-        }
-
-        // Healing preview
-        const healCount = counts.get(DiceType.HEALTH) || 0;
-        if (healCount >= 2) {
-            let healing = 0;
-            if (healCount === 5) healing = this.player.maxHp - this.player.hp;
-            else if (healCount === 4) healing = 6;
-            else if (healCount === 3) healing = 4;
-            else healing = 2;
-
-            if (healing > 0) {
-                effects.push(`💝 Heal ${healCount === 5 ? 'to full HP' : healing + ' HP'}`);
-            }
-        }
-
-        // Update the preview text
-        if (effects.length > 0) {
-            this.effectPreviewText.setText(effects.join('\n'));
-        } else {
-            this.effectPreviewText.setText('No effect combinations yet');
-        }
+        const preview = this.diceManager.getEffectPreview();
+        this.effectPreviewText.setText(preview);
     }
 
     private toggleDiceLock(index: number): void {
         if (this.rerollsLeft > 0) {
-            this.lockedDice[index] = !this.lockedDice[index];
+            this.diceManager.toggleLock(index);
             
             // Update lock display
             if (this.diceLocks[index]) {
@@ -260,7 +195,7 @@ export default class BattleScene extends Phaser.Scene {
                 this.diceLocks[index] = null;
             }
             
-            if (this.lockedDice[index]) {
+            if (this.diceManager.getDiceLocks()[index]) {
                 const diceSprite = this.diceSprites[index];
                 const lockSprite = this.add.text(diceSprite.x, diceSprite.y + 40, '🔒', {
                     font: '24px Arial'
@@ -281,77 +216,43 @@ export default class BattleScene extends Phaser.Scene {
         console.log('------ Player Turn Start ------');
         console.log(`Current Player Stats: HP: ${this.player.hp}/${this.player.maxHp}, MP: ${this.player.mp}/${this.player.maxMp}`);
         console.log(`Monster Stats: ${this.monster.name} HP: ${this.monster.hp}/${this.monster.maxHp}`);
-        
-        const counts = new Map<DiceType, number>();
-        this.dice.forEach(die => {
-            counts.set(die.type, (counts.get(die.type) || 0) + 1);
-        });
 
-        console.log('Dice Roll Results:', Array.from(counts.entries()).map(([type, count]) => `${type}: ${count}`));
+        const effects = this.diceManager.calculateEffects();
+        console.log('Calculated Effects:', effects);
 
-        let damageDealt = 0;
-        let defenseGained = 0;
-
-        // Process attack dice
-        const attackCount = counts.get(DiceType.ATTACK) || 0;
-        if (attackCount >= 3) {
-            if (attackCount === 5) damageDealt = 8;
-            else if (attackCount === 4) damageDealt = 5;
-            else damageDealt = 3;
-
-            console.log(`Attack Combo: ${attackCount} dice -> ${damageDealt} damage`);
-            this.monster.takeDamage(damageDealt);
-            this.showFloatingText(this.monsterHPText.x, this.monsterHPText.y, `-${damageDealt}`, '#ff0000');
+        // Process attack damage
+        if (effects.damage > 0) {
+            console.log(`Attack: ${effects.damage} damage`);
+            this.monster.takeDamage(effects.damage);
+            this.showFloatingText(this.monsterHPText.x, this.monsterHPText.y, `-${effects.damage}`, '#ff0000');
         }
 
-        // Process defense dice
-        const defenseCount = counts.get(DiceType.DEFENSE) || 0;
-        if (defenseCount >= 3) {
-            if (defenseCount === 5) defenseGained = 999; // Immune
-            else if (defenseCount === 4) defenseGained = 5;
-            else defenseGained = 3;
-            console.log(`Defense Combo: ${defenseCount} dice -> ${defenseGained} defense`);
-        }
-
-        // Process magic dice
-        const magicCount = counts.get(DiceType.MAGIC) || 0;
-        if (magicCount >= 2) {
-            let mpCost = 0;
-            let magicDamage = 0;
-            
-            if (magicCount === 5) { mpCost = 8; magicDamage = 12; }
-            else if (magicCount === 4) { mpCost = 5; magicDamage = 8; }
-            else if (magicCount === 3) { mpCost = 3; magicDamage = 5; }
-            else { mpCost = 2; magicDamage = 3; }
-
-            console.log(`Magic Combo Attempt: ${magicCount} dice -> Cost: ${mpCost} MP, Damage: ${magicDamage}`);
-            if (this.player.useMp(mpCost)) {
-                console.log(`Magic Attack Success: Dealt ${magicDamage} magic damage`);
-                this.monster.takeDamage(magicDamage);
-                this.showFloatingText(this.monsterHPText.x, this.monsterHPText.y, `-${magicDamage}`, '#8800ff');
+        // Process magic damage
+        if (effects.magicDamage > 0 && effects.magicCost > 0) {
+            console.log(`Magic Attack Attempt: Cost: ${effects.magicCost} MP, Damage: ${effects.magicDamage}`);
+            if (this.player.useMp(effects.magicCost)) {
+                console.log(`Magic Attack Success: Dealt ${effects.magicDamage} magic damage`);
+                this.monster.takeDamage(effects.magicDamage);
+                this.showFloatingText(this.monsterHPText.x, this.monsterHPText.y, `-${effects.magicDamage}`, '#8800ff');
             } else {
                 console.log('Magic Attack Failed: Not enough MP');
             }
         }
 
-        // Process healing dice
-        const healCount = counts.get(DiceType.HEALTH) || 0;
-        if (healCount >= 2) {
-            let healing = 0;
-            if (healCount === 5) healing = this.player.maxHp - this.player.hp;
-            else if (healCount === 4) healing = 6;
-            else if (healCount === 3) healing = 4;
-            else healing = 2;
-
-            console.log(`Healing Combo: ${healCount} dice -> ${healing} healing`);
-            if (healing > 0) {
-                this.player.heal(healing);
-                this.showFloatingText(this.playerHPText.x, this.playerHPText.y, `+${healing}`, '#00ff00');
+        // Process healing
+        if (effects.healing !== 0) {
+            const healAmount = effects.healing === -1 ? 
+                this.player.maxHp - this.player.hp : effects.healing;
+            
+            if (healAmount > 0) {
+                console.log(`Healing: ${healAmount}`);
+                this.player.heal(healAmount);
+                this.showFloatingText(this.playerHPText.x, this.playerHPText.y, `+${healAmount}`, '#00ff00');
             }
         }
 
-        // Reset all dice locks
-        this.lockedDice = Array(5).fill(false);
+        // Reset dice locks
+        this.diceManager.resetLocks();
         this.diceLocks.forEach(lock => {
             if (lock) lock.destroy();
         });
@@ -370,7 +271,7 @@ export default class BattleScene extends Phaser.Scene {
 
         // Monster's turn
         this.time.delayedCall(1000, () => {
-            this.monsterTurn(defenseGained);
+            this.monsterTurn(effects.defense);
         });
     }
 
