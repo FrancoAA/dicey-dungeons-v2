@@ -143,7 +143,7 @@ export default class BattleScene extends Phaser.Scene {
         this.playerMPText = playerMP.text;
 
         // Display equipped items
-        this.displayEquippedItems(characterX, healthBarY + 60);
+        this.displayEquippedItems(20, this.cameras.main.height - 300);
 
         // Monster sprite and health
         this.monsterSprite = this.add.text(monsterX, characterY, this.monster.emoji, { 
@@ -215,13 +215,14 @@ export default class BattleScene extends Phaser.Scene {
         const consumableItems = this.player.inventory.filter(item => item.consumable);
 
         // Create container for item display
-        const itemsContainer = this.add.container(x - 150, y);
+        const padding = 20;
+        const itemsContainer = this.add.container(padding, y);
 
         // Display equipped items
         if (equippedItems.length > 0) {
             const equippedTitle = this.add.text(0, 0, 'Equipped:', {
                 font: '16px Arial',
-                color: '#ffffff'
+                color: '#ffd700'  // Gold color for better visibility
             });
             itemsContainer.add(equippedTitle);
 
@@ -257,14 +258,14 @@ export default class BattleScene extends Phaser.Scene {
 
         // Display consumable items
         if (consumableItems.length > 0) {
-            const consumableTitle = this.add.text(300, 0, 'Items:', {
+            const consumableTitle = this.add.text(200, 0, 'Items:', {
                 font: '16px Arial',
-                color: '#ffffff'
+                color: '#ffd700'  // Gold color for better visibility
             });
             itemsContainer.add(consumableTitle);
 
             consumableItems.forEach((item, index) => {
-                const itemText = this.add.text(300, 20 + index * 20, `${item.emoji} ${item.name}`, {
+                const itemText = this.add.text(200, 20 + index * 20, `${item.emoji} ${item.name}`, {
                     font: '14px Arial',
                     color: '#cccccc'
                 });
