@@ -26,6 +26,8 @@ export default class BattleScene extends Phaser.Scene {
     private monsterSprite!: Phaser.GameObjects.Text;
     private playerHealthBar!: Phaser.GameObjects.Rectangle;
     private playerHealthBarBg!: Phaser.GameObjects.Rectangle;
+    private playerMPBar!: Phaser.GameObjects.Rectangle;
+    private playerMPBarBg!: Phaser.GameObjects.Rectangle;
     private monsterHealthBar!: Phaser.GameObjects.Rectangle;
     private monsterHealthBarBg!: Phaser.GameObjects.Rectangle;
 
@@ -99,19 +101,20 @@ export default class BattleScene extends Phaser.Scene {
         const height = this.cameras.main.height;
 
         // Create character sprites
+        const characterX = width / 6;
         const characterY = height / 2 - 50;
-        const healthBarY = characterY + 100;
+        const healthBarY = characterY + 70;
         const healthBarWidth = 200;
         const healthBarHeight = 25;
+        const monsterX = 5 * width / 6;
 
-        // Player sprite and health (positioned at 1/4 of screen width)
-        this.playerSprite = this.add.text(width / 4, characterY, '🧙‍♂️', { 
+        this.playerSprite = this.add.text(characterX, characterY, '🧙‍♂️', { 
             font: '64px Arial' 
         }).setOrigin(0.5);
 
         // Create player health bar
         const playerHealth = this.createHealthBar(
-            width / 4,
+            characterX,
             healthBarY,
             healthBarWidth,
             healthBarHeight,
@@ -123,30 +126,35 @@ export default class BattleScene extends Phaser.Scene {
         this.playerHealthBar = playerHealth.bar;
         this.playerHPText = playerHealth.text;
         
-        // Player MP text
-        this.add.text(width / 4 - healthBarWidth/2, healthBarY + 30, '✨', { 
-            font: '24px Arial' 
-        });
-        this.playerMPText = this.add.text(width / 4 - healthBarWidth/2 + 40, healthBarY + 30, 
-            `${this.player.mp}/${this.player.maxMp}`, { 
-            font: '24px Arial' 
-        });
+        // Create player MP bar
+        const playerMP = this.createHealthBar(
+            characterX,
+            healthBarY + 30,
+            healthBarWidth,
+            healthBarHeight,
+            0x0088ff,  // Blue color for MP
+            this.player.mp,
+            this.player.maxMp
+        );
+        this.playerMPBarBg = playerMP.background;
+        this.playerMPBar = playerMP.bar;
+        this.playerMPText = playerMP.text;
 
-        // Monster sprite and health (positioned at 3/4 of screen width)
-        this.monsterSprite = this.add.text(3 * width / 4, characterY, this.monster.emoji, { 
+        // Monster sprite and health
+        this.monsterSprite = this.add.text(monsterX, characterY, this.monster.emoji, { 
             font: '64px Arial' 
         }).setOrigin(0.5);
 
         // Monster name
-        this.add.text(3 * width / 4, characterY - 80, 
-            `${this.monster.emoji} ${this.monster.name}`, { 
+        this.add.text(monsterX, characterY - 80, 
+            `${this.monster.name}`, { 
             font: '24px Arial',
             align: 'center'
         }).setOrigin(0.5);
 
         // Create monster health bar
         const monsterHealth = this.createHealthBar(
-            3 * width / 4,
+            monsterX,
             healthBarY,
             healthBarWidth,
             healthBarHeight,
@@ -159,7 +167,7 @@ export default class BattleScene extends Phaser.Scene {
         this.monsterHPText = monsterHealth.text;
 
         // Monster's next attack text (below health bar)
-        this.monsterNextAttackText = this.add.text(3 * width / 4, healthBarY + 30, 
+        this.monsterNextAttackText = this.add.text(monsterX, healthBarY + 30, 
             `Next Attack: ${this.monsterNextAttack}`, { 
             font: '24px Arial' 
         }).setOrigin(0.5);
@@ -201,18 +209,22 @@ export default class BattleScene extends Phaser.Scene {
         // Update health bars
         const playerHealthPercent = this.player.hp / this.player.maxHp;
         const monsterHealthPercent = this.monster.hp / this.monster.maxHp;
+        const playerMPPercent = this.player.mp / this.player.maxMp;
 
         // Scale health bars from right to left
         this.playerHealthBar.setScale(playerHealthPercent, 1);
         this.playerHealthBar.setOrigin(0, 0.5);
         
+        this.playerMPBar.setScale(playerMPPercent, 1);
+        this.playerMPBar.setOrigin(0, 0.5);
+        
         this.monsterHealthBar.setScale(monsterHealthPercent, 1);
         this.monsterHealthBar.setOrigin(0, 0.5);
 
         // Update text displays
-        this.playerHPText.setText(`${this.player.hp}/${this.player.maxHp}`);
-        this.playerMPText.setText(`${this.player.mp}/${this.player.maxMp}`);
-        this.monsterHPText.setText(`${this.monster.hp}/${this.monster.maxHp}`);
+        this.playerHPText.setText(`${this.player.hp}/${this.player.maxHp} Hp`);
+        this.playerMPText.setText(`${this.player.mp}/${this.player.maxMp} Mp`);
+        this.monsterHPText.setText(`${this.monster.hp}/${this.monster.maxHp} Hp`);
         this.monsterNextAttackText.setText(`Next Attack: ${this.monsterNextAttack}`);
         
         if (this.rerollsLeft > 0) {
