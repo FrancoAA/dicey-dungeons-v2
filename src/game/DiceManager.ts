@@ -28,6 +28,16 @@ export class DiceManager {
         return [...this.lockedDice];
     }
 
+    public getEmoji(diceType: DiceType): string {
+        switch (diceType) {
+            case DiceType.ATTACK: return '⚔️';
+            case DiceType.DEFENSE: return '🛡️';
+            case DiceType.MAGIC: return '✨';
+            case DiceType.HEALTH: return '💝';
+            default: return '';
+        }
+    }
+
     public toggleLock(index: number): void {
         if (index >= 0 && index < this.lockedDice.length) {
             this.lockedDice[index] = !this.lockedDice[index];

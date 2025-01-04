@@ -48,9 +48,6 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     create(): void {
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-
         // Create battle UI
         this.createBattleUI();
 
@@ -74,9 +71,10 @@ export default class BattleScene extends Phaser.Scene {
         });
 
         // Monster stats
-        this.monsterHPText = this.add.text(width - 200, 20, 
+        this.monsterHPText = this.add.text(width - 220, 20, 
             `${this.monster.emoji} ${this.monster.name} HP: ${this.monster.hp}/${this.monster.maxHp}`, { 
-            font: '24px Arial' 
+            font: '24px Arial',
+            align: 'right' 
         });
 
         this.monsterNextAttackText = this.add.text(width - 200, 50, `Next Attack: ${this.monsterNextAttack}`, { 
@@ -151,12 +149,7 @@ export default class BattleScene extends Phaser.Scene {
         const diceY = height - 150;
 
         dice.forEach((die, index) => {
-            let emoji = '⚔️';
-            switch (die.type) {
-                case DiceType.DEFENSE: emoji = '🛡️'; break;
-                case DiceType.MAGIC: emoji = '✨'; break;
-                case DiceType.HEALTH: emoji = '❤️'; break;
-            }
+            const emoji = this.diceManager.getEmoji(die.type);
 
             const diceSprite = this.add.text(startX + (diceSpacing * index), diceY, emoji, {
                 font: '48px Arial'
