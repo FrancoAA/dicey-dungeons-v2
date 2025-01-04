@@ -22,6 +22,12 @@ export default class BattleScene extends Phaser.Scene {
     private rerollButton!: Phaser.GameObjects.Text;
     private playButton!: Phaser.GameObjects.Text;
     private effectPreviewText!: Phaser.GameObjects.Text;
+    private playerSprite!: Phaser.GameObjects.Text;
+    private monsterSprite!: Phaser.GameObjects.Text;
+    private playerHealthBar!: Phaser.GameObjects.Rectangle;
+    private playerHealthBarBg!: Phaser.GameObjects.Rectangle;
+    private monsterHealthBar!: Phaser.GameObjects.Rectangle;
+    private monsterHealthBarBg!: Phaser.GameObjects.Rectangle;
 
     constructor() {
         super({ key: 'BattleScene' });
@@ -59,42 +65,99 @@ export default class BattleScene extends Phaser.Scene {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 
-        // Player stats
-        this.add.text(20, 20, '❤️', { font: '24px Arial' });
-        this.playerHPText = this.add.text(60, 20, `${this.player.hp}/${this.player.maxHp}`, { 
-            font: '24px Arial' 
-        });
+        // Create character sprites
+        const characterY = height / 2 - 50;
+        const healthBarY = characterY + 100;
+        const healthBarWidth = 200;
+        const healthBarHeight = 25;
+
+        // Player sprite and health (positioned at 1/4 of screen width)
+        this.playerSprite = this.add.text(width / 4, characterY, '🧙‍♂️', { 
+            font: '64px Arial' 
+        }).setOrigin(0.5);
+
+        // Player health bar background
+        this.playerHealthBarBg = this.add.rectangle(
+            width / 4,
+            healthBarY,
+            healthBarWidth,
+            healthBarHeight,
+            0x666666
+        ).setOrigin(0.5);
+
+        // Player health bar
+        this.playerHealthBar = this.add.rectangle(
+            width / 4,
+            healthBarY,
+            healthBarWidth,
+            healthBarHeight,
+            0x00ff00
+        ).setOrigin(0.5);
+
+        // Player health text (inside health bar)
+        this.playerHPText = this.add.text(width / 4, healthBarY, 
+            `${this.player.hp}/${this.player.maxHp}`, { 
+            font: '16px Arial',
+            color: '#000000'
+        }).setOrigin(0.5);
         
-        this.add.text(20, 50, '✨', { font: '24px Arial' });
-        this.playerMPText = this.add.text(60, 50, `${this.player.mp}/${this.player.maxMp}`, { 
+        // Player MP text
+        this.add.text(width / 4 - healthBarWidth/2, healthBarY + 30, '✨', { 
+            font: '24px Arial' 
+        });
+        this.playerMPText = this.add.text(width / 4 - healthBarWidth/2 + 40, healthBarY + 30, 
+            `${this.player.mp}/${this.player.maxMp}`, { 
             font: '24px Arial' 
         });
 
-        // Monster stats
-        this.monsterHPText = this.add.text(width - 220, 20, 
-            `${this.monster.emoji} ${this.monster.name} HP: ${this.monster.hp}/${this.monster.maxHp}`, { 
-            font: '24px Arial',
-            align: 'right' 
-        });
+        // Monster sprite and health (positioned at 3/4 of screen width)
+        this.monsterSprite = this.add.text(3 * width / 4, characterY, this.monster.emoji, { 
+            font: '64px Arial' 
+        }).setOrigin(0.5);
 
-        this.monsterNextAttackText = this.add.text(width - 200, 50, `Next Attack: ${this.monsterNextAttack}`, { 
+        // Monster name
+        this.add.text(3 * width / 4, characterY - 80, 
+            `${this.monster.emoji} ${this.monster.name}`, { 
+            font: '24px Arial',
+            align: 'center'
+        }).setOrigin(0.5);
+
+        // Monster health bar background
+        this.monsterHealthBarBg = this.add.rectangle(
+            3 * width / 4,
+            healthBarY,
+            healthBarWidth,
+            healthBarHeight,
+            0x666666
+        ).setOrigin(0.5);
+
+        // Monster health bar
+        this.monsterHealthBar = this.add.rectangle(
+            3 * width / 4,
+            healthBarY,
+            healthBarWidth,
+            healthBarHeight,
+            0xff0000
+        ).setOrigin(0.5);
+
+        // Monster health text (inside health bar)
+        this.monsterHPText = this.add.text(3 * width / 4, healthBarY, 
+            `${this.monster.hp}/${this.monster.maxHp}`, { 
+            font: '16px Arial',
+            color: '#000000'
+        }).setOrigin(0.5);
+
+        // Monster's next attack text (below health bar)
+        this.monsterNextAttackText = this.add.text(3 * width / 4, healthBarY + 30, 
+            `Next Attack: ${this.monsterNextAttack}`, { 
             font: '24px Arial' 
-        });
+        }).setOrigin(0.5);
 
-        // Action buttons
-        // Play button (always visible)
-        this.playButton = this.add.text(width / 2 + 100, height - 50, '▶️ Play Hand', {
-            font: '24px Arial',
-            color: '#ffffff'
-        })
-            .setOrigin(0.5)
-            .setInteractive({ useHandCursor: true })
-            .on('pointerover', () => this.playButton.setStyle({ color: '#ff0' }))
-            .on('pointerout', () => this.playButton.setStyle({ color: '#ffffff' }))
-            .on('pointerdown', () => this.processDiceCombination());
-
+        // Dice controls at the bottom
+        const buttonY = height - 50;
+        
         // Reroll button
-        this.rerollButton = this.add.text(width / 2 - 100, height - 50, `🎲 Reroll (${this.rerollsLeft} left)`, {
+        this.rerollButton = this.add.text(width / 2 - 100, buttonY, `🎲 Reroll (${this.rerollsLeft} left)`, {
             font: '24px Arial',
             color: '#ffffff'
         })
@@ -104,7 +167,18 @@ export default class BattleScene extends Phaser.Scene {
             .on('pointerout', () => this.rerollButton.setStyle({ color: '#ffffff' }))
             .on('pointerdown', () => this.rerollDice());
 
-        // Add effect preview text
+        // Play button
+        this.playButton = this.add.text(width / 2 + 100, buttonY, '▶️ Play Hand', {
+            font: '24px Arial',
+            color: '#ffffff'
+        })
+            .setOrigin(0.5)
+            .setInteractive({ useHandCursor: true })
+            .on('pointerover', () => this.playButton.setStyle({ color: '#ff0' }))
+            .on('pointerout', () => this.playButton.setStyle({ color: '#ffffff' }))
+            .on('pointerdown', () => this.processDiceCombination());
+
+        // Effect preview text
         this.effectPreviewText = this.add.text(width / 2, height / 2 + 80, '', {
             font: '20px Arial',
             color: '#cccccc',
@@ -113,13 +187,18 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     private updateUI(): void {
-        // Update all UI elements
+        // Update health bars
+        const playerHealthPercent = this.player.hp / this.player.maxHp;
+        const monsterHealthPercent = this.monster.hp / this.monster.maxHp;
+
+        this.playerHealthBar.setScale(playerHealthPercent, 1);
+        this.monsterHealthBar.setScale(monsterHealthPercent, 1);
+
+        // Update text displays
         this.playerHPText.setText(`${this.player.hp}/${this.player.maxHp}`);
         this.playerMPText.setText(`${this.player.mp}/${this.player.maxMp}`);
-        
-        this.monsterHPText.setText(
-            `${this.monster.emoji} ${this.monster.name} HP: ${this.monster.hp}/${this.monster.maxHp}`
-        );
+        this.monsterHPText.setText(`${this.monster.hp}/${this.monster.maxHp}`);
+        this.monsterNextAttackText.setText(`Next Attack: ${this.monsterNextAttack}`);
         
         if (this.rerollsLeft > 0) {
             this.rerollButton.setText(`🎲 Reroll (${this.rerollsLeft} left)`);
