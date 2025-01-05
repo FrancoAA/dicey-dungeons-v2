@@ -41,20 +41,53 @@ export default class DungeonScene extends Phaser.Scene {
     private createUI(): void {
         const width = this.cameras.main.width;
 
+        // Clear existing UI
+        this.children.getAll().forEach((child) => {
+            if (child.y < 100) {
+                child.destroy();
+            }
+        });
+
+        // Stats background
+        const padding = 10;
+        const statsHeight = 60;
+        const background = this.add.rectangle(0, 0, width, statsHeight, 0x000000, 0.7)
+            .setOrigin(0, 0);
+
         // Player stats
-        this.add.text(20, 20, '❤️', { font: '24px Arial' });
-        this.add.text(60, 20, `${this.player.hp}/${this.player.maxHp}`, { font: '24px Arial' });
-        
-        this.add.text(20, 50, '✨', { font: '24px Arial' });
-        this.add.text(60, 50, `${this.player.mp}/${this.player.maxMp}`, { font: '24px Arial' });
+        const heartEmoji = '❤️';
+        const mpEmoji = '✨';
+        const goldEmoji = '💰';
+        const levelEmoji = '📊';
 
-        // Level and gold
-        this.add.text(200, 20, `📊 Level ${this.player.level}`, { font: '24px Arial' });
-        this.add.text(200, 50, `💰 ${this.player.gold} Gold`, { font: '24px Arial' });
+        const statsText = this.add.text(padding, padding, 
+            `${heartEmoji} ${this.player.hp}/${this.player.maxHp}    ${mpEmoji} ${this.player.mp}/${this.player.maxMp}`, {
+            font: '24px Arial',
+            color: '#ffffff'
+        });
 
-        // Room progress
-        this.add.text(width - 150, 20, `Room: ${this.currentRoom + 1}/${this.rooms.length}`, { 
-            font: '24px Arial' 
+        // Level and gold with improved visibility
+        const levelText = this.add.text(width / 2 - 100, padding, 
+            `${levelEmoji} Level ${this.player.level}`, {
+            font: '24px Arial',
+            color: '#ffffff'
+        });
+
+        // Gold display with shadow for better contrast
+        const goldText = this.add.text(width / 2 + 50, padding, 
+            `${goldEmoji} ${this.player.gold} Gold`, {
+            font: '24px Arial',
+            color: '#ffd700',
+            stroke: '#000000',
+            strokeThickness: 4,
+            shadow: { blur: 2, stroke: true }
+        });
+
+        // Room counter
+        this.add.text(width - 150, padding, 
+            `Room: ${this.currentRoom + 1}/10`, {
+            font: '24px Arial',
+            color: '#ffffff'
         });
     }
 

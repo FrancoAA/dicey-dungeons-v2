@@ -143,7 +143,7 @@ export default class BattleScene extends Phaser.Scene {
         this.playerMPText = playerMP.text;
 
         // Display equipped items
-        this.displayEquippedItems(20, this.cameras.main.height - 300);
+        this.displayEquippedItems(20, this.cameras.main.height - 250);
 
         // Monster sprite and health
         this.monsterSprite = this.add.text(monsterX, characterY, this.monster.emoji, { 
@@ -167,7 +167,7 @@ export default class BattleScene extends Phaser.Scene {
             this.monster.hp,
             this.monster.maxHp
         );
-        this.monsterHealthBarBg = monsterHealth.background;
+        //this.monsterHealthBarBg = monsterHealth.background;
         this.monsterHealthBar = monsterHealth.bar;
         this.monsterHPText = monsterHealth.text;
 
