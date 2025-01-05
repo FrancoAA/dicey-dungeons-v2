@@ -18,7 +18,7 @@ export class Player {
         this._maxMp = 10;
         this._level = 1;
         this._experience = 0;
-        this._gold = 0;
+        this._gold = 100;
     }
 
     // Getters

@@ -106,7 +106,7 @@ export default class DungeonScene extends Phaser.Scene {
                 rooms.push(RoomType.MERCHANT);
             }
         }
-
+        
         // Add merchant room before boss
         rooms.push(RoomType.MERCHANT);
         
@@ -272,10 +272,6 @@ export default class DungeonScene extends Phaser.Scene {
     }
 
     private showMerchantRoom(width: number, height: number): void {
-        this.add.text(width / 2, height / 2 + 50, '🛍️ Items for sale:', {
-            font: '24px Arial',
-            color: '#ffffff'
-        }).setOrigin(0.5);
 
         const merchantItems = [
             ITEMS.SHARP_SWORD,
@@ -286,39 +282,99 @@ export default class DungeonScene extends Phaser.Scene {
             ITEMS.MAGIC_SCROLL
         ];
 
+        // Select 3 random items
         const selectedItems = [...merchantItems]
             .sort(() => Math.random() - 0.5)
             .slice(0, 3);
 
+        // Calculate positions for horizontal layout
+        const itemSpacing = 250;  // Space between items
+        const startX = width / 2 - (itemSpacing * (selectedItems.length - 1)) / 2;
+        const itemY = height / 2;
+
+        // Display items horizontally
         selectedItems.forEach((item, index) => {
-            this.createMerchantItem(item, index, width, height);
+            const itemX = startX + (index * itemSpacing);
+            this.createMerchantItem(item, itemX, itemY);
         });
 
         this.addContinueButton();
     }
 
-    private createMerchantItem(item: any, index: number, width: number, height: number): void {
-        const itemText = `${item.emoji} ${item.name} (${item.cost} gold)`;
-        const itemButton = this.add.text(width / 2, height / 2 + 90 + (index * 30), itemText, {
+    private createMerchantItem(item: any, x: number, y: number): void {
+        // Create item container
+        const container = this.add.container(x, y);
+
+        // Item emoji and name
+        const itemTitle = this.add.text(0, -30, `${item.emoji} ${item.name}`, {
+            font: '24px Arial',
+            color: '#ffffff',
+            align: 'center'
+        }).setOrigin(0.5);
+
+        // Price with gold color and shadow
+        const priceText = this.add.text(0, 0, `${item.cost} Gold`, {
             font: '20px Arial',
-            color: this.player.gold >= item.cost ? '#ffffff' : '#666666'
-        })
-            .setOrigin(0.5)
-            .setInteractive({ useHandCursor: true });
+            color: '#ffd700',
+            align: 'center',
+            stroke: '#000000',
+            strokeThickness: 4,
+            shadow: { blur: 2, stroke: true }
+        }).setOrigin(0.5);
+
+        // Description
+        const descText = this.add.text(0, 30, item.description, {
+            font: '16px Arial',
+            color: '#cccccc',
+            align: 'center',
+            wordWrap: { width: 200 }
+        }).setOrigin(0.5);
+
+        // Add background for the item
+        const padding = 20;
+        const bg = this.add.rectangle(
+            0,
+            0,
+            Math.max(itemTitle.width, priceText.width, descText.width) + padding * 2,
+            itemTitle.height + priceText.height + descText.height + padding * 2,
+            0x000000,
+            0.5
+        ).setOrigin(0.5);
+
+        // Buy button
+        const buttonY = bg.height / 2 + 10;
+        const buyButton = this.add.text(0, buttonY, '🛍️ Buy', {
+            font: '20px Arial',
+            color: this.player.gold >= item.cost ? '#ffffff' : '#666666',
+            backgroundColor: this.player.gold >= item.cost ? '#4a4a4a' : '#2a2a2a',
+            padding: { x: 15, y: 8 }
+        }).setOrigin(0.5);
 
         if (this.player.gold >= item.cost) {
-            itemButton
-                .on('pointerover', () => itemButton.setStyle({ color: '#ff0' }))
-                .on('pointerout', () => itemButton.setStyle({ color: '#ffffff' }))
+            buyButton
+                .setInteractive({ useHandCursor: true })
+                .on('pointerover', () => {
+                    buyButton.setStyle({ backgroundColor: '#666666' });
+                })
+                .on('pointerout', () => {
+                    buyButton.setStyle({ backgroundColor: '#4a4a4a' });
+                })
                 .on('pointerdown', () => {
                     if (this.player.spendGold(item.cost)) {
                         this.player.addItem(item);
-                        itemButton.setStyle({ color: '#666666' });
-                        itemButton.removeInteractive();
+                        buyButton.setStyle({ 
+                            color: '#666666',
+                            backgroundColor: '#2a2a2a'
+                        });
+                        buyButton.removeInteractive();
+                        // Update gold display
                         this.createUI();
                     }
                 });
         }
+
+        // Add all elements to the container
+        container.add([bg, itemTitle, priceText, descText, buyButton]);
     }
 
     private addContinueButton(): void {

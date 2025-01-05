@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { DiceType } from '../types/GameTypes';
 import { Player } from '../game/Player';
 import { Monster, MonsterTypes, BossTypes } from '../game/Monster';
-import { DiceManager, DiceResult } from '../game/DiceManager';
+import { DiceManager } from '../game/DiceManager';
 
 export default class BattleScene extends Phaser.Scene {
     private player!: Player;
@@ -10,7 +10,7 @@ export default class BattleScene extends Phaser.Scene {
     private diceManager: DiceManager;
     private diceSprites: Phaser.GameObjects.Text[] = [];
     private diceLocks: Phaser.GameObjects.Text[] = [];
-    private rerollsLeft: number = 2;
+    private rerollsLeft = 2;
     private currentRoom!: number;
     private monsterNextAttack!: number;
     
@@ -99,8 +99,8 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     private createBattleUI(): void {
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
+        const width = this.scale.width;
+        const height = this.scale.height;
 
         // Create character sprites
         const characterX = width / 6;
@@ -129,9 +129,10 @@ export default class BattleScene extends Phaser.Scene {
         this.playerHPText = playerHealth.text;
         
         // Create player MP bar
+        const manaBarY = healthBarY + 30;
         const playerMP = this.createHealthBar(
             characterX,
-            healthBarY + 30,
+            manaBarY,
             healthBarWidth,
             healthBarHeight,
             0x0088ff,  // Blue color for MP
@@ -141,9 +142,10 @@ export default class BattleScene extends Phaser.Scene {
         this.playerMPBarBg = playerMP.background;
         this.playerMPBar = playerMP.bar;
         this.playerMPText = playerMP.text;
+        this.displayEquippedItems(characterX - healthBarWidth / 2, manaBarY + 20);
 
         // Display equipped items
-        this.displayEquippedItems(20, this.cameras.main.height / 2);
+        this.displayConsumables(width / 3, height / 2);
 
         // Monster sprite and health
         this.monsterSprite = this.add.text(monsterX, characterY, this.monster.emoji, { 
@@ -217,98 +219,114 @@ export default class BattleScene extends Phaser.Scene {
 
     private displayEquippedItems(x: number, y: number): void {
         const equippedItems = this.player.equippedItems;
+        const equippedItemsContainer = this.add.container(x, y);
+
+        equippedItems.forEach((item, index) => {
+            const equippedItem = this.add.text(index * 30, 0, `${item.emoji}`, {
+                font: '20px Arial',
+                color: '#cccccc'
+            });
+
+            // Make the item interactive and add tooltip behavior
+            equippedItem.setInteractive({ useHandCursor: true });
+
+            // Create tooltip text (hidden by default)
+            const tooltip = this.add.text(0, 0, item.description, {
+                font: '14px Arial',
+                color: '#ffffff',
+                backgroundColor: '#000000',
+                padding: { x: 5, y: 3 },
+            }).setDepth(1);
+            tooltip.setVisible(false);
+
+            // Show tooltip on hover
+            equippedItem.on('pointerover', () => {
+                tooltip.setVisible(true);
+                tooltip.setPosition(equippedItem.x, equippedItem.y + equippedItem.height + 5);
+            });
+
+            // Hide tooltip when mouse leaves
+            equippedItem.on('pointerout', () => {
+                tooltip.setVisible(false);
+            });
+
+            equippedItemsContainer.add(equippedItem);
+            equippedItemsContainer.add(tooltip);
+        });
+    }
+
+    private displayConsumables(x: number, y: number): void {
         const consumableItems = this.player.inventory.filter(item => item.consumable);
 
         // Create container for item display
-        const padding = 20;
-        const itemsContainer = this.add.container(padding, y);
-
-        // Display equipped items
-        if (equippedItems.length > 0) {
-            const equippedTitle = this.add.text(0, 0, 'Equipped:', {
-                font: '16px Arial',
-                color: '#ffd700'  // Gold color for better visibility
-            });
-            itemsContainer.add(equippedTitle);
-
-            equippedItems.forEach((item, index) => {
-                const itemText = this.add.text(0, 20 + index * 20, `${item.emoji} ${item.name}`, {
-                    font: '14px Arial',
-                    color: '#cccccc'
-                });
-                
-                // Add tooltip with item description
-                itemText.setInteractive({ useHandCursor: true })
-                    .on('pointerover', () => {
-                        itemText.setStyle({ color: '#ffffff' });
-                        const tooltipX = itemsContainer.x + itemText.x + itemText.width + 10;
-                        const tooltipY = itemsContainer.y + itemText.y;
-                        const tooltip = this.add.text(tooltipX, tooltipY, item.description, {
-                            font: '12px Arial',
-                            color: '#ffff00',
-                            backgroundColor: '#000000',
-                            padding: { x: 5, y: 3 }
-                        });
-                        itemText.tooltip = tooltip;
-                    })
-                    .on('pointerout', () => {
-                        itemText.setStyle({ color: '#cccccc' });
-                        if (itemText.tooltip) {
-                            itemText.tooltip.destroy();
-                            itemText.tooltip = null;
-                        }
-                    });
-
-                itemsContainer.add(itemText);
-            });
-        }
+        const itemsContainer = this.add.container(x, y);
 
         // Display consumable items
         if (consumableItems.length > 0) {
-            const consumableTitle = this.add.text(200, 0, 'Items:', {
+            const consumableTitle = this.add.text(0, 0, 'Inventory:', {
                 font: '16px Arial',
                 color: '#ffd700'  // Gold color for better visibility
             });
             itemsContainer.add(consumableTitle);
 
+            const GRID_COLS = 4;  // Number of items per row
+            const ITEM_SPACING = 40;  // Space between items
+
             consumableItems.forEach((item, index) => {
-                const itemText = this.add.text(200, 20 + index * 20, `${item.emoji} ${item.name}`, {
-                    font: '14px Arial',
-                    color: '#cccccc'
-                });
+                const row = Math.floor(index / GRID_COLS);
+                const col = index % GRID_COLS;
+
+                const itemText = this.add.text(
+                    col * ITEM_SPACING,
+                    30 + row * ITEM_SPACING,
+                    `${item.emoji}`,
+                    {
+                        font: '24px Arial',
+                        color: '#cccccc',
+                        backgroundColor: '#000000',
+                        padding: { x: 5, y: 5 }
+                    }
+                );
 
                 // Make consumable items clickable
-                itemText.setInteractive({ useHandCursor: true })
-                    .on('pointerover', () => {
-                        itemText.setStyle({ color: '#ffffff' });
-                        const tooltipX = itemsContainer.x + itemText.x + itemText.width + 10;
-                        const tooltipY = itemsContainer.y + itemText.y;
-                        const tooltip = this.add.text(tooltipX, tooltipY, item.description, {
-                            font: '12px Arial',
-                            color: '#ffff00',
-                            backgroundColor: '#000000',
-                            padding: { x: 5, y: 3 }
-                        });
-                        itemText.tooltip = tooltip;
-                    })
-                    .on('pointerout', () => {
-                        itemText.setStyle({ color: '#cccccc' });
-                        if (itemText.tooltip) {
-                            itemText.tooltip.destroy();
-                            itemText.tooltip = null;
-                        }
-                    })
-                    .on('pointerdown', () => {
-                        if (this.player.useItem(item.id)) {
-                            // Refresh the display after using an item
-                            itemsContainer.destroy();
-                            this.displayEquippedItems(x, y);
-                            // Update health/mana bars
-                            this.updateUI();
-                        }
-                    });
+                itemText.setInteractive({ useHandCursor: true });
+
+                // Create tooltip (hidden by default)
+                const tooltip = this.add.text(0, 0, `${item.name}\n${item.description}`, {
+                    font: '14px Arial',
+                    color: '#ffffff',
+                    backgroundColor: '#000000',
+                    padding: { x: 5, y: 3 },
+                    wordWrap: { width: 200 }
+                }).setDepth(1);
+                tooltip.setVisible(false);
+
+                // Show tooltip on hover
+                itemText.on('pointerover', () => {
+                    itemText.setStyle({ backgroundColor: '#cccccc' });
+                    tooltip.setVisible(true);
+                    tooltip.setPosition(itemText.x, itemText.y + itemText.height + 5);
+                });
+
+                // Hide tooltip when mouse leaves
+                itemText.on('pointerout', () => {
+                    itemText.setStyle({ backgroundColor: '#000000' });
+                    tooltip.setVisible(false);
+                });
+
+                // Handle item use
+                itemText.on('pointerdown', () => {
+                    if (this.player.useItem(item.id)) {
+                        // Refresh the display after using an item
+                        itemsContainer.destroy();
+                        this.displayConsumables(x, y);
+                        // Update health/mana bars
+                        this.updateUI();
+                    }
+                });
 
                 itemsContainer.add(itemText);
+                itemsContainer.add(tooltip);
             });
         }
     }
