@@ -3,6 +3,7 @@ import BootScene from "./scenes/BootScene";
 import MainMenuScene from "./scenes/MainMenuScene";
 import DungeonScene from "./scenes/DungeonScene";
 import BattleScene from "./scenes/BattleScene";
+import CharacterSelectScene from './scenes/CharacterSelectScene';
 
 const config: Phaser.Types.Core.GameConfig = {
     parent: "app",
@@ -24,6 +25,7 @@ const config: Phaser.Types.Core.GameConfig = {
     scene: [
         BootScene,
         MainMenuScene,
+        CharacterSelectScene,
         DungeonScene,
         BattleScene
     ]

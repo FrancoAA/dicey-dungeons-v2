@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { RoomType } from '../types/GameTypes';
-import { Player } from '../game/Player';
+import Player from '../game/Player';
 import { ITEMS } from '../game/Item';
 
 export default class DungeonScene extends Phaser.Scene {
@@ -12,14 +12,14 @@ export default class DungeonScene extends Phaser.Scene {
         super({ key: 'DungeonScene' });
     }
 
-    init(data?: { player: Player; currentRoom: number; continueGame: boolean }): void {
+    init(data: { player?: Player; currentRoom?: number; continueGame?: boolean }): void {
         if (data?.continueGame) {
             // Continue existing game
+            this.player = data.player!;
+            this.currentRoom = data.currentRoom!;
+        } else if (data?.player) {
+            // New game with selected character
             this.player = data.player;
-            this.currentRoom = data.currentRoom;
-        } else {
-            // Start new game
-            this.player = new Player();
             this.currentRoom = 0;
             this.rooms = this.generateDungeon();
         }
@@ -39,7 +39,7 @@ export default class DungeonScene extends Phaser.Scene {
     }
 
     private createUI(): void {
-        const width = this.cameras.main.width;
+        const width = this.scale.width;
 
         // Clear existing UI
         this.children.getAll().forEach((child) => {

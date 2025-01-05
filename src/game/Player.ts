@@ -1,6 +1,12 @@
 import { Item, ItemEffect, ITEMS } from './Item';
 
-export class Player {
+export enum CharacterClass {
+    KNIGHT = 'knight',
+    MAGE = 'mage',
+    SORCERER = 'sorcerer'
+}
+
+export default class Player {
     private _hp: number;
     private _maxHp: number;
     private _mp: number;
@@ -8,14 +14,32 @@ export class Player {
     private _level: number;
     private _experience: number;
     private _gold: number;
+    private _class: CharacterClass;
     private _inventory: Item[] = [ITEMS['HEALTH_POTION'], ITEMS['MAGIC_SCROLL']];
     private _equippedItems: Item[] = [ITEMS['SHARP_SWORD'], ITEMS['STEEL_SHIELD']];
 
-    constructor() {
-        this._hp = 20;
-        this._maxHp = 20;
-        this._mp = 10;
-        this._maxMp = 10;
+    constructor(characterClass: CharacterClass = CharacterClass.KNIGHT) {
+        console.log(characterClass);
+        this._class = characterClass;
+
+        // Set initial stats based on character class
+        switch (characterClass) {
+            case CharacterClass.KNIGHT:
+                this._maxHp = 30;
+                this._maxMp = 5;
+                break;
+            case CharacterClass.MAGE:
+                this._maxHp = 20;
+                this._maxMp = 15;
+                break;
+            case CharacterClass.SORCERER:
+                this._maxHp = 20;
+                this._maxMp = 10;
+                break;
+        }
+
+        this._hp = this._maxHp;
+        this._mp = this._maxMp;
         this._level = 1;
         this._experience = 0;
         this._gold = 100;
@@ -29,8 +53,20 @@ export class Player {
     get level(): number { return this._level; }
     get experience(): number { return this._experience; }
     get gold(): number { return this._gold; }
+    get characterClass(): CharacterClass { return this._class; }
     get inventory(): Item[] { return [...this._inventory]; }
     get equippedItems(): Item[] { return [...this._equippedItems]; }
+    get emoji(): string {
+        console.log(this._class);
+        switch (this._class) {
+            case CharacterClass.KNIGHT:
+                return '🤴🏻';
+            case CharacterClass.MAGE:
+                return '🧙‍♀️';
+            case CharacterClass.SORCERER:
+                return '🧝🏻‍♀️';
+        }
+    }
 
     // Health methods
     heal(amount: number): void {
@@ -198,13 +234,14 @@ export class Player {
             level: this._level,
             experience: this._experience,
             gold: this._gold,
+            class: this._class,
             inventory: this._inventory.map(item => ({...item})),
             equippedItems: this._equippedItems.map(item => ({...item}))
         };
     }
 
     static deserialize(data: any): Player {
-        const player = new Player();
+        const player = new Player(data.class);
         player._hp = data.hp;
         player._maxHp = data.maxHp;
         player._mp = data.mp;

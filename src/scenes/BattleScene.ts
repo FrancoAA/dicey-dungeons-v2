@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { DiceType } from '../types/GameTypes';
-import { Player } from '../game/Player';
+import Player from '../game/Player';
 import { Monster, MonsterTypes, BossTypes } from '../game/Monster';
 import { DiceManager } from '../game/DiceManager';
 
@@ -110,7 +110,7 @@ export default class BattleScene extends Phaser.Scene {
         const healthBarHeight = 25;
         const monsterX = 5 * width / 6;
 
-        this.playerSprite = this.add.text(characterX, characterY, '🧙‍♂️', { 
+        this.playerSprite = this.add.text(characterX, characterY, this.player.emoji, { 
             font: '64px Arial' 
         }).setOrigin(0.5);
 
