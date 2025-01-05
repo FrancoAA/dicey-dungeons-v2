@@ -1,4 +1,4 @@
-import { Item, ItemEffect } from './Item';
+import { Item, ItemEffect, ITEMS } from './Item';
 
 export class Player {
     private _hp: number;
@@ -8,8 +8,8 @@ export class Player {
     private _level: number;
     private _experience: number;
     private _gold: number;
-    private _inventory: Item[] = [];
-    private _equippedItems: Item[] = [];
+    private _inventory: Item[] = [ITEMS['HEALTH_POTION'], ITEMS['MAGIC_SCROLL']];
+    private _equippedItems: Item[] = [ITEMS['SHARP_SWORD'], ITEMS['STEEL_SHIELD']];
 
     constructor() {
         this._hp = 20;

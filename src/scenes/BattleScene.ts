@@ -104,7 +104,7 @@ export default class BattleScene extends Phaser.Scene {
 
         // Create character sprites
         const characterX = width / 6;
-        const characterY = height / 2 - 50;
+        const characterY = height / 3;
         const healthBarY = characterY + 70;
         const healthBarWidth = 200;
         const healthBarHeight = 25;
@@ -143,7 +143,7 @@ export default class BattleScene extends Phaser.Scene {
         this.playerMPText = playerMP.text;
 
         // Display equipped items
-        this.displayEquippedItems(20, this.cameras.main.height - 250);
+        this.displayEquippedItems(20, this.cameras.main.height / 2);
 
         // Monster sprite and health
         this.monsterSprite = this.add.text(monsterX, characterY, this.monster.emoji, { 
@@ -183,7 +183,9 @@ export default class BattleScene extends Phaser.Scene {
         // Reroll button
         this.rerollButton = this.add.text(width / 2 - 100, buttonY, `🎲 Reroll (${this.rerollsLeft} left)`, {
             font: '24px Arial',
-            color: '#ffffff'
+            color: '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 10, y: 5 }
         })
             .setOrigin(0.5)
             .setInteractive({ useHandCursor: true })
@@ -194,7 +196,9 @@ export default class BattleScene extends Phaser.Scene {
         // Play button
         this.playButton = this.add.text(width / 2 + 100, buttonY, '▶️ Play Hand', {
             font: '24px Arial',
-            color: '#ffffff'
+            color: '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 10, y: 5 }
         })
             .setOrigin(0.5)
             .setInteractive({ useHandCursor: true })
@@ -203,10 +207,11 @@ export default class BattleScene extends Phaser.Scene {
             .on('pointerdown', () => this.processDiceCombination());
 
         // Effect preview text
-        this.effectPreviewText = this.add.text(width / 2, height / 2 + 80, '', {
-            font: '20px Arial',
+        this.effectPreviewText = this.add.text(width / 2, height - 170, '', {
+            font: '16px Arial',
             color: '#cccccc',
-            align: 'center'
+            backgroundColor: '#000000',
+            align: 'center',
         }).setOrigin(0.5);
     }
 
@@ -236,7 +241,9 @@ export default class BattleScene extends Phaser.Scene {
                 itemText.setInteractive({ useHandCursor: true })
                     .on('pointerover', () => {
                         itemText.setStyle({ color: '#ffffff' });
-                        const tooltip = this.add.text(itemText.x + 150, itemText.y, item.description, {
+                        const tooltipX = itemsContainer.x + itemText.x + itemText.width + 10;
+                        const tooltipY = itemsContainer.y + itemText.y;
+                        const tooltip = this.add.text(tooltipX, tooltipY, item.description, {
                             font: '12px Arial',
                             color: '#ffff00',
                             backgroundColor: '#000000',
@@ -274,7 +281,9 @@ export default class BattleScene extends Phaser.Scene {
                 itemText.setInteractive({ useHandCursor: true })
                     .on('pointerover', () => {
                         itemText.setStyle({ color: '#ffffff' });
-                        const tooltip = this.add.text(itemText.x + 150, itemText.y, item.description, {
+                        const tooltipX = itemsContainer.x + itemText.x + itemText.width + 10;
+                        const tooltipY = itemsContainer.y + itemText.y;
+                        const tooltip = this.add.text(tooltipX, tooltipY, item.description, {
                             font: '12px Arial',
                             color: '#ffff00',
                             backgroundColor: '#000000',
@@ -351,7 +360,7 @@ export default class BattleScene extends Phaser.Scene {
         const height = this.cameras.main.height;
         const diceSpacing = 80;
         const startX = width / 2 - (diceSpacing * 2);
-        const diceY = height - 150;
+        const diceY = height - 250;
 
         dice.forEach((die, index) => {
             const emoji = this.diceManager.getEmoji(die.type);
