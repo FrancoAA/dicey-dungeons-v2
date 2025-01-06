@@ -190,10 +190,10 @@ export default class BattleScene extends Phaser.Scene {
             padding: { x: 10, y: 5 }
         })
             .setOrigin(0.5)
-            .setInteractive({ useHandCursor: true })
+                .setInteractive({ useHandCursor: true })
             .on('pointerover', () => this.rerollButton.setStyle({ color: '#ff0' }))
             .on('pointerout', () => this.rerollButton.setStyle({ color: '#ffffff' }))
-            .on('pointerdown', () => this.rerollDice());
+                .on('pointerdown', () => this.rerollDice());
 
         // Play button
         this.playButton = this.add.text(width / 2 + 100, buttonY, '▶️ Play Hand', {
@@ -437,7 +437,143 @@ export default class BattleScene extends Phaser.Scene {
         }
     }
 
-    private processDiceCombination(): void {
+    private async animateAttack(attacker: Phaser.GameObjects.Text, target: Phaser.GameObjects.Text): Promise<void> {
+        const originalX = attacker.x;
+        const direction = attacker.x < target.x ? 1 : -1;
+        
+        // Quick lunge animation
+        await new Promise<void>(resolve => {
+            this.tweens.add({
+                targets: attacker,
+                x: attacker.x + (50 * direction),
+                duration: 100,
+                ease: 'Power1',
+                yoyo: true,
+                onComplete: () => {
+                    attacker.x = originalX;
+                    resolve();
+                }
+            });
+        });
+    }
+
+    private async animateDamage(target: Phaser.GameObjects.Text): Promise<void> {
+        const originalTint = target.style.color;
+        
+        // Flash red and shake
+        target.setStyle({ color: '#ff0000' });
+        
+        await new Promise<void>(resolve => {
+            this.tweens.add({
+                targets: target,
+                x: target.x + 10,
+                duration: 50,
+                ease: 'Power1',
+                yoyo: true,
+                repeat: 2,
+                onComplete: () => {
+                    target.setStyle({ color: originalTint });
+                    resolve();
+                }
+            });
+        });
+    }
+
+    private async animateHealing(target: Phaser.GameObjects.Text): Promise<void> {
+        // Create healing particles
+        const particles = this.add.particles(target.x, target.y, '✨', {
+            speed: 100,
+            scale: { start: 1, end: 0 },
+            alpha: { start: 1, end: 0 },
+            lifespan: 800,
+            gravityY: -100,
+            quantity: 1,
+            frequency: 100,
+            duration: 800
+        });
+
+        await new Promise<void>(resolve => {
+            this.time.delayedCall(800, () => {
+                particles.destroy();
+                resolve();
+            });
+        });
+    }
+
+    private async animateMagic(target: Phaser.GameObjects.Text): Promise<void> {
+        // Create magic circle effect
+        const circle = this.add.circle(target.x, target.y, 40, 0x4444ff, 0.3);
+        circle.setAlpha(0);
+
+        await new Promise<void>(resolve => {
+            this.tweens.add({
+                targets: circle,
+                alpha: 0.5,
+                scale: 1.5,
+                duration: 500,
+                ease: 'Power2',
+                yoyo: true,
+                onComplete: () => {
+                    circle.destroy();
+                    resolve();
+                }
+            });
+        });
+    }
+
+    private async applyDamage(target: Phaser.GameObjects.Text, amount: number, type: 'physical' | 'magic'): Promise<void> {
+        if (type === 'physical') {
+            await this.animateDamage(target);
+        } else {
+            await this.animateMagic(target);
+        }
+        
+        // Show damage number
+        const damageText = this.add.text(target.x, target.y - 20, `-${amount}`, {
+            font: '24px Arial',
+            color: type === 'physical' ? '#ff0000' : '#4444ff'
+        }).setOrigin(0.5);
+
+        await new Promise<void>(resolve => {
+            this.tweens.add({
+                targets: damageText,
+                y: damageText.y - 30,
+                alpha: 0,
+                duration: 500,
+                ease: 'Power2',
+                onComplete: () => {
+                    damageText.destroy();
+                    resolve();
+                }
+            });
+        });
+    }
+
+    private async applyHealing(target: Phaser.GameObjects.Text, amount: number): Promise<void> {
+        await this.animateHealing(target);
+        
+        // Show healing number
+        const healText = this.add.text(target.x, target.y - 20, `+${amount}`, {
+            font: '24px Arial',
+            color: '#00ff00'
+        }).setOrigin(0.5);
+
+        await new Promise<void>(resolve => {
+            this.tweens.add({
+                targets: healText,
+                y: healText.y - 30,
+                alpha: 0,
+                duration: 500,
+                ease: 'Power2',
+                onComplete: () => {
+                    healText.destroy();
+                    resolve();
+                }
+            });
+        });
+    }
+
+    private async processDiceCombination(): Promise<void> {
         console.log('------ Player Turn Start ------');
         console.log(`Current Player Stats: HP: ${this.player.hp}/${this.player.maxHp}, MP: ${this.player.mp}/${this.player.maxMp}`);
         console.log(`Monster Stats: ${this.monster.name} HP: ${this.monster.hp}/${this.monster.maxHp}`);
@@ -448,8 +584,9 @@ export default class BattleScene extends Phaser.Scene {
         // Process attack damage
         if (effects.damage > 0) {
             console.log(`Attack: ${effects.damage} damage`);
+            await this.animateAttack(this.playerSprite, this.monsterSprite);
+            await this.applyDamage(this.monsterHPText, effects.damage, 'physical');
             this.monster.takeDamage(effects.damage);
-            this.showFloatingText(this.monsterHPText.x, this.monsterHPText.y, `-${effects.damage}`, '#ff0000');
         }
 
         // Process magic damage
@@ -457,8 +594,9 @@ export default class BattleScene extends Phaser.Scene {
             console.log(`Magic Attack Attempt: Cost: ${effects.magicCost} MP, Damage: ${effects.magicDamage}`);
             if (this.player.useMp(effects.magicCost)) {
                 console.log(`Magic Attack Success: Dealt ${effects.magicDamage} magic damage`);
+                await this.animateAttack(this.playerSprite, this.monsterSprite);
+                await this.applyDamage(this.monsterHPText, effects.magicDamage, 'magic');
                 this.monster.takeDamage(effects.magicDamage);
-                this.showFloatingText(this.monsterHPText.x, this.monsterHPText.y, `-${effects.magicDamage}`, '#8800ff');
             } else {
                 console.log('Magic Attack Failed: Not enough MP');
             }
@@ -471,8 +609,8 @@ export default class BattleScene extends Phaser.Scene {
             
             if (healAmount > 0) {
                 console.log(`Healing: ${healAmount}`);
+                await this.applyHealing(this.playerHPText, healAmount);
                 this.player.heal(healAmount);
-                this.showFloatingText(this.playerHPText.x, this.playerHPText.y, `+${healAmount}`, '#00ff00');
             }
         }
 
@@ -500,23 +638,7 @@ export default class BattleScene extends Phaser.Scene {
         });
     }
 
-    private showFloatingText(x: number, y: number, message: string, color: string): void {
-        const text = this.add.text(x, y, message, {
-            font: '32px Arial',
-            color: color
-        }).setOrigin(0.5);
-
-        this.tweens.add({
-            targets: text,
-            y: y - 50,
-            alpha: 0,
-            duration: 1000,
-            ease: 'Power2',
-            onComplete: () => text.destroy()
-        });
-    }
-
-    private monsterTurn(playerDefense: number): void {
+    private async monsterTurn(playerDefense: number): Promise<void> {
         console.log('------ Monster Turn Start ------');
         console.log(`Monster Attack Roll: ${this.monsterNextAttack}`);
         console.log(`Player Defense: ${playerDefense}`);
@@ -525,8 +647,9 @@ export default class BattleScene extends Phaser.Scene {
         console.log(`Final Damage After Defense: ${damage}`);
 
         if (damage > 0) {
+            await this.animateAttack(this.monsterSprite, this.playerSprite);
+            await this.applyDamage(this.playerHPText, damage, 'physical');
             this.player.takeDamage(damage);
-            this.showFloatingText(this.playerHPText.x, this.playerHPText.y, `-${damage}`, '#ff0000');
             console.log(`Player took ${damage} damage. HP now: ${this.player.hp}/${this.player.maxHp}`);
         } else {
             console.log('Attack blocked by player defense!');
