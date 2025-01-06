@@ -30,6 +30,9 @@ export default class BattleScene extends Phaser.Scene {
     private playerMPBarBg!: Phaser.GameObjects.Rectangle;
     private monsterHealthBar!: Phaser.GameObjects.Rectangle;
     private monsterHealthBarBg!: Phaser.GameObjects.Rectangle;
+    private levelText!: Phaser.GameObjects.Text;
+    private goldText!: Phaser.GameObjects.Text;
+    private roomText!: Phaser.GameObjects.Text;
 
     constructor() {
         super({ key: 'BattleScene' });
@@ -58,6 +61,31 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     create(): void {
+        const width = this.scale.width;
+        const height = this.scale.height;
+
+        // Create status bar background
+        const statusBarHeight = 40;
+        const statusBar = this.add.rectangle(0, 0, width, statusBarHeight, 0x000000);
+        statusBar.setOrigin(0, 0);
+        statusBar.setAlpha(0.8);
+
+        // Add status texts
+        this.levelText = this.add.text(20, statusBarHeight / 2, `📊 Level ${this.player.level}`, {
+            font: '20px Arial',
+            color: '#ffffff'
+        }).setOrigin(0, 0.5);
+
+        this.goldText = this.add.text(width / 2, statusBarHeight / 2, `💰 ${this.player.gold} Gold`, {
+            font: '20px Arial',
+            color: '#ffd700'
+        }).setOrigin(0.5, 0.5);
+
+        this.roomText = this.add.text(width - 20, statusBarHeight / 2, `Room: ${this.currentRoom + 1}/10`, {
+            font: '20px Arial',
+            color: '#ffffff'
+        }).setOrigin(1, 0.5);
+
         // Create battle UI
         this.createBattleUI();
 
@@ -332,6 +360,11 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     private updateUI(): void {
+        // Update status bar
+        this.levelText.setText(`📊 Level ${this.player.level}`);
+        this.goldText.setText(`💰 ${this.player.gold} Gold`);
+        this.roomText.setText(`Room: ${this.currentRoom + 1}/10`);
+
         // Update health bars
         const playerHealthPercent = this.player.hp / this.player.maxHp;
         const monsterHealthPercent = this.monster.hp / this.monster.maxHp;

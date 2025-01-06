@@ -96,22 +96,30 @@ export default class DungeonScene extends Phaser.Scene {
         const dungeonLength = 10;  // Total rooms including boss
         const rooms: RoomType[] = [];
 
-                // Add merchant room before boss
-                rooms.push(RoomType.MERCHANT);
         // Fill all rooms except last two (merchant and boss)
         for (let i = 0; i < dungeonLength - 2; i++) {
+            const lastRoom = rooms[rooms.length - 1];
             const roll = Math.random() * 100;
-            if (roll < 35) {  // Increased from original chance
-                rooms.push(RoomType.CHEST);
-            } else if (roll < 85) {
+
+            // If last room was a chest or merchant, force a monster room
+            if (lastRoom === RoomType.CHEST || lastRoom === RoomType.MERCHANT) {
                 rooms.push(RoomType.MONSTER);
-            } else {
+                continue;
+            }
+
+            // Adjust probabilities based on previous room
+            if (roll < 35) {  // Chest room (35% chance)
+                rooms.push(RoomType.CHEST);
+            } else if (roll < 85) {  // Monster room (50% chance)
+                rooms.push(RoomType.MONSTER);
+            } else {  // Merchant room (15% chance)
                 rooms.push(RoomType.MERCHANT);
             }
         }
-        
 
-        
+        // Add merchant room before boss
+        rooms.push(RoomType.MERCHANT);
+
         // Add boss room at the end
         rooms.push(RoomType.BOSS);
 
@@ -427,8 +435,8 @@ export default class DungeonScene extends Phaser.Scene {
     }
 
     private addContinueButton(): void {
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
+        const width = this.scale.width;
+        const height = this.scale.height;
 
         const continueButton = this.add.text(width / 2, height - 100, '▶️ Continue', {
             font: '32px Arial',
