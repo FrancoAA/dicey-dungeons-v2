@@ -17,7 +17,13 @@ export default class DungeonScene extends Phaser.Scene {
         if (data?.continueGame) {
             // Continue existing game
             this.player = data.player!;
-            this.currentRoom = data.currentRoom!;
+            // If the player has reached the last room, reset to the first room
+            if (data?.currentRoom && (data.currentRoom > this.rooms.length - 1)) {
+                this.currentRoom = 0;
+                this.rooms = this.generateDungeon();
+            } else {
+                this.currentRoom = data.currentRoom!;
+            }
         } else if (data?.player) {
             // New game with selected character
             this.player = data.player;
