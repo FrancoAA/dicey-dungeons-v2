@@ -9,7 +9,8 @@ export enum RoomType {
     MONSTER = 'monster',
     CHEST = 'chest',
     MERCHANT = 'merchant',
-    BOSS = 'boss'
+    BOSS = 'boss',
+    ENCOUNTER = 'encounter'
 }
 
 export interface PlayerStats {

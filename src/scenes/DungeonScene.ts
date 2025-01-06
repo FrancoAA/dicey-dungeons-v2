@@ -101,11 +101,19 @@ export default class DungeonScene extends Phaser.Scene {
     private generateDungeon(): RoomType[] {
         const dungeonLength = 10;  // Total rooms including boss
         const rooms: RoomType[] = [];
+        let hasEncounter = false;
 
         // Fill all rooms except last two (merchant and boss)
         for (let i = 0; i < dungeonLength - 2; i++) {
             const lastRoom = rooms[rooms.length - 1];
             const roll = Math.random() * 100;
+
+            // If we haven't added an encounter room and we're at least halfway through
+            if (!hasEncounter && i >= dungeonLength / 2 && i < dungeonLength - 3) {
+                rooms.push(RoomType.ENCOUNTER);
+                hasEncounter = true;
+                continue;
+            }
 
             // If last room was a chest or merchant, force a monster room
             if (lastRoom === RoomType.CHEST || lastRoom === RoomType.MERCHANT) {
@@ -129,34 +137,13 @@ export default class DungeonScene extends Phaser.Scene {
         // Add boss room at the end
         rooms.push(RoomType.BOSS);
 
-        return rooms;
-    }
-
-    private showRoom(): void {
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-        const roomType = this.rooms[this.currentRoom];
-
-        // Clear previous room content
-        this.clearRoomContent();
-
-        // Get room info and display title
-        const roomInfo = this.getRoomInfo(roomType);
-        this.displayRoomTitle(roomInfo, width, height);
-
-        // Handle room specific content
-        switch (roomType) {
-            case RoomType.MONSTER:
-            case RoomType.BOSS:
-                this.showBattleRoom(width, height);
-                break;
-            case RoomType.CHEST:
-                this.showChestRoom(width, height);
-                break;
-            case RoomType.MERCHANT:
-                this.showMerchantRoom(width, height);
-                break;
+        // If we haven't added an encounter room yet, replace a random room (excluding last 2)
+        if (!hasEncounter) {
+            const replaceIndex = Math.floor(Math.random() * (dungeonLength - 3));
+            rooms[replaceIndex] = RoomType.ENCOUNTER;
         }
+
+        return rooms;
     }
 
     private clearRoomContent(): void {
@@ -194,6 +181,12 @@ export default class DungeonScene extends Phaser.Scene {
                     emoji: '👑',
                     description: 'The dungeon boss awaits...'
                 };
+            case RoomType.ENCOUNTER:
+                return {
+                    title: 'Mysterious Room',
+                    emoji: '❓',
+                    description: 'A strange situation presents itself...'
+                };
         }
     }
 
@@ -207,6 +200,36 @@ export default class DungeonScene extends Phaser.Scene {
             font: '24px Arial',
             color: '#cccccc'
         }).setOrigin(0.5);
+    }
+
+    private showRoom(): void {
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        const roomType = this.rooms[this.currentRoom];
+
+        // Clear previous room content
+        this.clearRoomContent();
+
+        // Get room info and display title
+        const roomInfo = this.getRoomInfo(roomType);
+        this.displayRoomTitle(roomInfo, width, height);
+
+        // Handle room specific content
+        switch (roomType) {
+            case RoomType.MONSTER:
+            case RoomType.BOSS:
+                this.showBattleRoom(width, height);
+                break;
+            case RoomType.CHEST:
+                this.showChestRoom(width, height);
+                break;
+            case RoomType.MERCHANT:
+                this.showMerchantRoom(width, height);
+                break;
+            case RoomType.ENCOUNTER:
+                this.showEncounterRoom(width, height);
+                break;
+        }
     }
 
     private showBattleRoom(width: number, height: number): void {
@@ -471,5 +494,117 @@ export default class DungeonScene extends Phaser.Scene {
             // Victory! (shouldn't happen as boss room should handle this)
             this.scene.start('MainMenuScene');
         }
+    }
+
+    private showEncounterRoom(width: number, height: number): void {
+        const encounters = [
+            {
+                title: 'Ancient Shrine',
+                description: 'You find a mysterious shrine. Do you want to make an offering?',
+                choices: [
+                    {
+                        text: 'Make an offering (5 gold)',
+                        condition: () => this.player.gold >= 5,
+                        action: () => {
+                            this.player.gold -= 5;
+                            if (Math.random() < 0.7) {
+                                this.player.maxHp += 2;
+                                this.player.hp += 2;
+                                return 'The shrine blesses you with increased vitality!';
+                            } else {
+                                this.player.hp = Math.max(1, this.player.hp - 2);
+                                return 'The shrine drains some of your life force!';
+                            }
+                        }
+                    },
+                    {
+                        text: 'Leave it alone',
+                        action: () => 'You decide not to tempt fate.'
+                    }
+                ]
+            },
+            {
+                title: 'Mysterious Potion',
+                description: 'You find a bubbling potion. Do you drink it?',
+                choices: [
+                    {
+                        text: 'Drink the potion',
+                        action: () => {
+                            const roll = Math.random();
+                            if (roll < 0.4) {
+                                this.player.maxMp += 2;
+                                this.player.mp += 2;
+                                return 'Your magical power increases!';
+                            } else if (roll < 0.8) {
+                                this.player.mp = Math.max(0, this.player.mp - 1);
+                                return 'You feel slightly drained...';
+                            } else {
+                                this.player.gold += 10;
+                                return 'The potion turns to gold in your stomach!';
+                            }
+                        }
+                    },
+                    {
+                        text: 'Leave it',
+                        action: () => 'Better safe than sorry.'
+                    }
+                ]
+            }
+        ];
+
+        const encounter = encounters[Math.floor(Math.random() * encounters.length)];
+        
+        // Title
+        this.add.text(width / 2, height * 0.3, encounter.title, {
+            font: '32px Arial',
+            color: '#ffffff'
+        }).setOrigin(0.5);
+
+        // Description
+        this.add.text(width / 2, height * 0.4, encounter.description, {
+            font: '24px Arial',
+            color: '#ffffff',
+            align: 'center',
+            wordWrap: { width: width * 0.8 }
+        }).setOrigin(0.5);
+
+        // Choice buttons
+        encounter.choices.forEach((choice, index) => {
+            if (!choice.condition || choice.condition()) {
+                const button = this.add.text(width / 2, height * (0.6 + index * 0.1), choice.text, {
+                    font: '24px Arial',
+                    color: '#00ff00',
+                    backgroundColor: '#333333',
+                    padding: { x: 20, y: 10 }
+                })
+                .setOrigin(0.5)
+                .setInteractive({ useHandCursor: true })
+                .on('pointerover', () => button.setColor('#ffffff'))
+                .on('pointerout', () => button.setColor('#00ff00'))
+                .on('pointerdown', () => {
+                    const result = choice.action();
+                    this.showEncounterResult(result);
+                });
+            }
+        });
+    }
+
+    private showEncounterResult(result: string): void {
+        // Clear existing content except UI
+        this.clearRoomContent();
+        
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+
+        // Show result text
+        this.add.text(width / 2, height * 0.4, result, {
+            font: '28px Arial',
+            color: '#ffffff',
+            align: 'center',
+            wordWrap: { width: width * 0.8 }
+        }).setOrigin(0.5);
+
+        // Add continue button
+        this.addContinueButton();
     }
 }
