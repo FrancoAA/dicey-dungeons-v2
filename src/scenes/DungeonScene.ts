@@ -7,6 +7,7 @@ export default class DungeonScene extends Phaser.Scene {
     private player!: Player;
     private currentRoom!: number;
     private rooms!: RoomType[];
+    private currentRerollCost: number = 10;
 
     constructor() {
         super({ key: 'DungeonScene' });
@@ -95,6 +96,8 @@ export default class DungeonScene extends Phaser.Scene {
         const dungeonLength = 10;  // Total rooms including boss
         const rooms: RoomType[] = [];
 
+                // Add merchant room before boss
+                rooms.push(RoomType.MERCHANT);
         // Fill all rooms except last two (merchant and boss)
         for (let i = 0; i < dungeonLength - 2; i++) {
             const roll = Math.random() * 100;
@@ -107,8 +110,7 @@ export default class DungeonScene extends Phaser.Scene {
             }
         }
         
-        // Add merchant room before boss
-        rooms.push(RoomType.MERCHANT);
+
         
         // Add boss room at the end
         rooms.push(RoomType.BOSS);
@@ -272,7 +274,6 @@ export default class DungeonScene extends Phaser.Scene {
     }
 
     private showMerchantRoom(width: number, height: number): void {
-
         const merchantItems = [
             ITEMS.SHARP_SWORD,
             ITEMS.STEEL_SHIELD,
@@ -281,6 +282,13 @@ export default class DungeonScene extends Phaser.Scene {
             ITEMS.HEALTH_POTION,
             ITEMS.MAGIC_SCROLL
         ];
+
+        this.displayMerchantItems(merchantItems, width, height);
+    }
+
+    private displayMerchantItems(merchantItems: any[], width: number, height: number): void {
+        // Clear previous items if any
+        this.clearRoomContent();
 
         // Select 3 random items
         const selectedItems = [...merchantItems]
@@ -298,6 +306,47 @@ export default class DungeonScene extends Phaser.Scene {
             this.createMerchantItem(item, itemX, itemY);
         });
 
+        // Display reroll button
+        const rerollButton = this.add.text(width / 2, 2 * (height / 3), `Reroll Items (${this.currentRerollCost} gold)`, {
+            font: '20px Arial',
+            color: '#ffd700',
+            backgroundColor: '#000000',
+            padding: { x: 10, y: 5 }
+        }).setOrigin(0.5);
+
+        if (this.player.gold >= this.currentRerollCost) {
+
+            rerollButton.setInteractive({ useHandCursor: true })
+                .on('pointerover', () => {
+                    rerollButton.setStyle({ backgroundColor: '#333333' });
+                })
+                .on('pointerout', () => {
+                    rerollButton.setStyle({ backgroundColor: '#000000' });
+                })
+                .on('pointerdown', () => {
+                    if (this.player.gold >= this.currentRerollCost) {
+                        // Deduct gold
+                        this.player.spendGold(this.currentRerollCost);
+                        
+                        // Increase reroll cost for next time
+                        if (this.currentRerollCost === 10) {
+                            this.currentRerollCost = 25;
+                        } else if (this.currentRerollCost === 25) {
+                            this.currentRerollCost = 50;
+                        } else {
+                            this.currentRerollCost = Math.min(this.currentRerollCost + 25, 100);
+                        }
+
+                        // Display new items
+                        this.displayMerchantItems(merchantItems, width, height);
+                    }
+                });
+        } else {
+            // Show disabled reroll button
+            rerollButton.setStyle({ color: '#666666', backgroundColor: '#2a2a2a' });
+        }
+
+        // Add continue button
         this.addContinueButton();
     }
 
