@@ -101,7 +101,9 @@ export default class DungeonScene extends Phaser.Scene {
     private generateDungeon(): RoomType[] {
         const dungeonLength = 10;  // Total rooms including boss
         const rooms: RoomType[] = [];
-        let hasEncounter = false;
+        let hasEncounter = true;
+
+        rooms.push(RoomType.ENCOUNTER);
 
         // Fill all rooms except last two (merchant and boss)
         for (let i = 0; i < dungeonLength - 2; i++) {
@@ -506,13 +508,13 @@ export default class DungeonScene extends Phaser.Scene {
                         text: 'Make an offering (5 gold)',
                         condition: () => this.player.gold >= 5,
                         action: () => {
-                            this.player.gold -= 5;
+                            this.player.spendGold(5);
                             if (Math.random() < 0.7) {
-                                this.player.maxHp += 2;
-                                this.player.hp += 2;
+                                this.player._maxHp += 2;
+                                this.player.heal(2);
                                 return 'The shrine blesses you with increased vitality!';
                             } else {
-                                this.player.hp = Math.max(1, this.player.hp - 2);
+                                this.player.takeDamage(2);
                                 return 'The shrine drains some of your life force!';
                             }
                         }
@@ -532,14 +534,14 @@ export default class DungeonScene extends Phaser.Scene {
                         action: () => {
                             const roll = Math.random();
                             if (roll < 0.4) {
-                                this.player.maxMp += 2;
-                                this.player.mp += 2;
+                                this.player._maxMp += 2;
+                                this.player.restoreMp(2);
                                 return 'Your magical power increases!';
                             } else if (roll < 0.8) {
-                                this.player.mp = Math.max(0, this.player.mp - 1);
+                                this.player.useMp(1);
                                 return 'You feel slightly drained...';
                             } else {
-                                this.player.gold += 10;
+                                this.player.addGold(10);
                                 return 'The potion turns to gold in your stomach!';
                             }
                         }
@@ -555,13 +557,13 @@ export default class DungeonScene extends Phaser.Scene {
         const encounter = encounters[Math.floor(Math.random() * encounters.length)];
         
         // Title
-        this.add.text(width / 2, height * 0.3, encounter.title, {
+        this.add.text(width / 2 , (height * 0.3) + 200, encounter.title, {
             font: '32px Arial',
             color: '#ffffff'
         }).setOrigin(0.5);
 
         // Description
-        this.add.text(width / 2, height * 0.4, encounter.description, {
+        this.add.text(width / 2, (height * 0.3) + 250, encounter.description, {
             font: '24px Arial',
             color: '#ffffff',
             align: 'center',
@@ -571,7 +573,7 @@ export default class DungeonScene extends Phaser.Scene {
         // Choice buttons
         encounter.choices.forEach((choice, index) => {
             if (!choice.condition || choice.condition()) {
-                const button = this.add.text(width / 2, height * (0.6 + index * 0.1), choice.text, {
+                const button = this.add.text(width / 2, height * (0.7 + index * 0.1), choice.text, {
                     font: '24px Arial',
                     color: '#00ff00',
                     backgroundColor: '#333333',
