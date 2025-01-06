@@ -169,12 +169,17 @@ export default class DungeonScene extends Phaser.Scene {
 
     private showMerchantRoom(width: number, height: number): void {
         const merchantItems = [
-            ITEMS.SHARP_SWORD,
-            ITEMS.STEEL_SHIELD,
-            ITEMS.MAGIC_RING,
-            ITEMS.LUCKY_CHARM,
             ITEMS.HEALTH_POTION,
-            ITEMS.MAGIC_SCROLL
+            ITEMS.MEDIUM_HEALTH_POTION,
+            ITEMS.LARGE_HEALTH_POTION,
+            ITEMS.MAGIC_SCROLL,
+            ITEMS.GREATER_MAGIC_SCROLL,
+            ITEMS.SHARP_SWORD,
+            ITEMS.STEEL_SWORD,
+            ITEMS.MYTHRIL_SWORD,
+            ITEMS.STEEL_SHIELD,
+            ITEMS.HEALING_NECKLACE,
+            ITEMS.VITALITY_NECKLACE
         ];
 
         this.displayMerchantItems(merchantItems, width, height);
@@ -224,6 +229,7 @@ export default class DungeonScene extends Phaser.Scene {
                         this.statusBar.update();
                         
                         // Increase reroll cost for next time
+                        /*
                         if (this.currentRerollCost === 10) {
                             this.currentRerollCost = 25;
                         } else if (this.currentRerollCost === 25) {
@@ -231,7 +237,7 @@ export default class DungeonScene extends Phaser.Scene {
                         } else {
                             this.currentRerollCost = Math.min(this.currentRerollCost + 25, 100);
                         }
-
+                        */
                         // Display new items
                         this.displayMerchantItems(merchantItems, width, height);
                     }
